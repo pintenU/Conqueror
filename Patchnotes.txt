@@ -4,7 +4,4 @@ Things that need fixing:
 ----------
 Things to add:
 #
-----------
-Info:
-#
 -------------------------
