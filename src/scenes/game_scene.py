@@ -4,7 +4,8 @@ import random
 
 from src.entities.player import Player
 from src.entities.goblin import Goblin
-from src.entities.goblin import Goblin as GoblinKing  # reuse movement, override draw
+from src.entities.enemy import Enemy
+from src.entities.entity_factory import spawn_patrol, roll_loot as factory_roll_loot
 
 
 TILE_SIZE = 48
@@ -444,10 +445,9 @@ class GameScene:
         self.torches=[Torch(c,r) for c,r in TORCH_POSITIONS]
         self.vignette=self._build_vignette()
         self.player=Player(PLAYER_SPAWN[0],PLAYER_SPAWN[1],TILE_SIZE)
-        self.goblins=[Goblin(p[0][0],p[0][1],TILE_SIZE,p) for p in GOBLIN_PATROLS]
+        self.goblins=[spawn_patrol('goblin',p,TILE_SIZE) for p in GOBLIN_PATROLS]
         # Goblin King — same movement as goblin but triggers boss fight
-        self.boss = Goblin(BOSS_PATROL[0][0],BOSS_PATROL[0][1],TILE_SIZE,BOSS_PATROL)
-        self.boss.move_speed = 1.8   # slower, more imposing
+        self.boss = spawn_patrol('goblin_king',BOSS_PATROL,TILE_SIZE)
         self.boss_defeated = False
 
         from src.scenes.chest_scene import (CandleItem,PotionItem,ShieldItem,

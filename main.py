@@ -17,6 +17,7 @@ from src.inventory import Inventory
 from src.armour import ArmourSystem
 from src.scenes.armour_scene import ArmourScene
 from src.player_stats import PlayerStats, EXP_GOBLIN, EXP_BOSS
+from src.entities.entity_factory import get_stat
 from src.scenes.levelup_scene import LevelUpScene
 from src.save_system import GameState, capture, restore, save_slot, load_slot, format_playtime
 from src.scenes.saves_scene import SavesScene
@@ -214,8 +215,8 @@ def main():
                     game_state.player_max_hp = player_stats.max_hp
                 loot = getattr(combat,'_goblin_loot',[])
                 # Boss always drops good loot
-                from src.scenes.chest_scene import GoldItem, PotionItem
-                combat._goblin_loot = [GoldItem(50), PotionItem(), PotionItem()]
+                from src.entities.entity_factory import roll_loot as factory_loot
+                combat._goblin_loot = factory_loot('goblin_king')
                 scene = "loot"
             else:
                 scene = "game"

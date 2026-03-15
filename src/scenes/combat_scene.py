@@ -434,16 +434,17 @@ STATE_DEFEAT         = "defeat"
 STATE_RELIC_MENU     = "relic_menu"
 
 PLAYER_MAX_HP  = 30
-GOBLIN_MAX_HP  = 12
-GOBLIN_DAMAGE  = 4     # how much the goblin hits for
+# Stats loaded from enemies.json via EntityFactory
+from src.entities.entity_factory import get_stat, roll_loot as factory_loot
+GOBLIN_MAX_HP  = get_stat('goblin','hp')
+GOBLIN_DAMAGE  = get_stat('goblin','damage')
 SWORD_DAMAGE   = 6
 SUN_SWORD_DMG  = 12
 POTION_HEAL    = 5
 
-# Goblin King stats
-BOSS_MAX_HP    = 45
-BOSS_DAMAGE    = 12   # massive damage
-BOSS_NAME      = "GOBLIN KING"
+BOSS_MAX_HP    = get_stat('goblin_king','hp')
+BOSS_DAMAGE    = get_stat('goblin_king','damage')
+BOSS_NAME      = get_stat('goblin_king','display_name')
 
 
 class CombatScene:

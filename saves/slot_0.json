@@ -1,10 +1,10 @@
 {
-  "playtime_seconds": 752.9272141456604,
-  "enemies_defeated": 4,
+  "playtime_seconds": 791.8112909793854,
+  "enemies_defeated": 5,
   "quests_cleared": 0,
-  "gold_collected": 18,
+  "gold_collected": 33,
   "chests_opened": 0,
-  "player_hp": 26,
+  "player_hp": 22,
   "player_max_hp": 30,
   "dungeon_cleared": true,
   "current_location": "dungeon",
@@ -17,18 +17,25 @@
     {
       "type": "PotionItem",
       "kwargs": {},
-      "stack_count": 7
+      "stack_count": 10
     },
     {
       "type": "GoldItem",
       "kwargs": {
-        "amount": 18
+        "amount": 33
       },
-      "stack_count": 18
+      "stack_count": 33
     },
     {
       "type": "CandleItem",
       "kwargs": {},
+      "stack_count": 1
+    },
+    {
+      "type": "KeyItem",
+      "kwargs": {
+        "key_id": "key_r1r2"
+      },
       "stack_count": 1
     },
     {
@@ -67,7 +74,7 @@
         {
           "type": "GoldItem",
           "kwargs": {
-            "amount": 5
+            "amount": 15
           },
           "stack_count": 1
         },
@@ -94,7 +101,7 @@
           "stack_count": 1
         },
         {
-          "type": "CandleItem",
+          "type": "PotionItem",
           "kwargs": {},
           "stack_count": 1
         }
@@ -104,19 +111,17 @@
       "opened": false,
       "items": [
         {
-          "type": "GoldItem",
-          "kwargs": {
-            "amount": 10
-          },
-          "stack_count": 1
-        },
-        {
-          "type": "CandleItem",
+          "type": "PotionItem",
           "kwargs": {},
           "stack_count": 1
         },
         {
-          "type": "CandleItem",
+          "type": "PotionItem",
+          "kwargs": {},
+          "stack_count": 1
+        },
+        {
+          "type": "PotionItem",
           "kwargs": {},
           "stack_count": 1
         }
@@ -133,51 +138,55 @@
           "stack_count": 1
         },
         {
-          "type": "PotionItem",
-          "kwargs": {},
-          "stack_count": 1
-        },
-        {
-          "type": "CandleItem",
-          "kwargs": {},
-          "stack_count": 1
-        }
-      ]
-    },
-    {
-      "opened": false,
-      "items": [
-        {
-          "type": "PotionItem",
-          "kwargs": {},
-          "stack_count": 1
-        },
-        {
           "type": "CandleItem",
           "kwargs": {},
           "stack_count": 1
         },
-        {
-          "type": "PotionItem",
-          "kwargs": {},
-          "stack_count": 1
-        }
-      ]
-    },
-    {
-      "opened": false,
-      "items": [
         {
           "type": "GoldItem",
           "kwargs": {
             "amount": 15
           },
           "stack_count": 1
-        },
+        }
+      ]
+    },
+    {
+      "opened": false,
+      "items": [
         {
           "type": "GoldItem",
           "kwargs": {
             "amount": 5
+          },
+          "stack_count": 1
+        },
+        {
+          "type": "PotionItem",
+          "kwargs": {},
+          "stack_count": 1
+        },
+        {
+          "type": "GoldItem",
+          "kwargs": {
+            "amount": 10
+          },
+          "stack_count": 1
+        }
+      ]
+    },
+    {
+      "opened": false,
+      "items": [
+        {
+          "type": "CandleItem",
+          "kwargs": {},
+          "stack_count": 1
+        },
+        {
+          "type": "GoldItem",
+          "kwargs": {
+            "amount": 15
           },
           "stack_count": 1
         },
@@ -220,6 +229,6 @@
     "strength": 0,
     "magic_mastery": 0
   },
-  "save_time": "2026-03-15  16:19",
+  "save_time": "2026-03-15  16:29",
   "slot": 0
 }
