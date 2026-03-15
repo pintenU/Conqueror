@@ -92,6 +92,8 @@ class Player(pygame.sprite.Sprite):
             return
 
         # Commit move
+        self._prev_col = self.tile_col
+        self._prev_row = self.tile_row
         self.tile_col  = new_col
         self.tile_row  = new_row
         self.target_px = float(new_col * self.tile_size)

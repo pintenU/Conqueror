@@ -3,7 +3,9 @@ import math
 
 
 class InventoryScene:
-    def __init__(self, screen, inventory):
+    def __init__(self, screen, inventory, use_mode=False, nearby_door=None):
+        self.use_mode   = use_mode
+        self.nearby_door = nearby_door
         self.screen    = screen
         self.W, self.H = screen.get_size()
         self.clock     = pygame.time.Clock()
@@ -21,6 +23,7 @@ class InventoryScene:
         self.panel_y = (self.H - self.panel_h) // 2
 
         self.selected   = 0
+        self._status    = ''
         self.row_h      = 52
         self.icon_size  = 36
         self.open_anim  = 0.0
@@ -136,24 +139,31 @@ class InventoryScene:
                 self.screen.blit(desc_s,(content_x + 60,
                                          row_y + 8 + name_s.get_height() + 3))
 
-            # Item count if stackable (potions)
-            from src.scenes.chest_scene import PotionItem
-            if isinstance(item, PotionItem):
-                count = self.inventory.count(PotionItem)
-                # Only show count on first occurrence
-                first_idx = next(
-                    j for j,it in enumerate(items) if isinstance(it,PotionItem))
-                if i == first_idx:
-                    cnt_s = self.font_small.render(
-                        f"x{count}", True, (120,180,210))
+            # Show stack count for stackable items
+            stack_n = self.inventory.stack_count(item)
+            if stack_n > 1 or getattr(item, 'stackable', False):
+                if getattr(item, 'stackable', False):
+                    from src.scenes.chest_scene import GoldItem
+                    if isinstance(item, GoldItem):
+                        cnt_label = f"{stack_n} gold"
+                    else:
+                        cnt_label = f"x{stack_n}"
+                    cnt_s = self.font_small.render(cnt_label, True, (120,180,210))
                     self.screen.blit(cnt_s,(content_x+row_w-cnt_s.get_width()-12,
                                             row_y+self.row_h//2-cnt_s.get_height()//2-2))
 
         # Footer hint
         footer_y = self.panel_y + self.panel_h - 40
-        hints = self.font_desc.render(
-            "↑ ↓  navigate    I / ESC  close", True, (70,56,34))
+        if self.use_mode:
+            hint_txt = "↑ ↓  select    ENTER  use key    ESC  cancel"
+        else:
+            hint_txt = "↑ ↓  navigate    I / ESC  close"
+        hints = self.font_desc.render(hint_txt, True, (70,56,34))
         self.screen.blit(hints,(self.W//2-hints.get_width()//2, footer_y))
+
+        if self._status:
+            st = self.font_desc.render(self._status, True, (200,80,60))
+            self.screen.blit(st,(self.W//2-st.get_width()//2, footer_y-20))
 
         # Item count summary
         total_s = self.font_desc.render(
@@ -181,6 +191,28 @@ class InventoryScene:
                     if event.key == pygame.K_DOWN:
                         self.selected = min(
                             len(self.inventory.items)-1, self.selected+1)
+                    if event.key == pygame.K_RETURN and self.use_mode:
+                        items = self.inventory.items
+                        if items and 0 <= self.selected < len(items):
+                            from src.scenes.chest_scene import KeyItem, ExitKeyItem
+                            item = items[self.selected]
+                            if (isinstance(item, ExitKeyItem)
+                                    and self.nearby_door
+                                    and hasattr(self.nearby_door, 'locked')):
+                                self.nearby_door.locked = False
+                                self.inventory.remove(item)
+                                return "game"
+                            elif (isinstance(item, KeyItem)
+                                    and self.nearby_door
+                                    and hasattr(self.nearby_door, 'key_id')
+                                    and self.nearby_door.key_id == item.key_id):
+                                self.nearby_door.locked = False
+                                self.inventory.remove(item)
+                                return "game"
+                            elif isinstance(item, (KeyItem, ExitKeyItem)):
+                                self._status = "Wrong key for this door!"
+                            else:
+                                self._status = "That's not a key!" 
 
             # --- Draw ---
             self.screen.blit(self.dim_surf,(0,0))

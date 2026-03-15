@@ -618,7 +618,7 @@ class CombatScene:
                     potion = next((it for it in self.inventory.items
                                    if isinstance(it, PotionItem)), None)
                     if potion:
-                        self.inventory.remove(potion)
+                        self.inventory.remove_one(PotionItem)
                         heal = min(POTION_HEAL, PLAYER_MAX_HP - self.player_hp)
                         self.player_hp += heal
                         remaining = self.inventory.count(PotionItem)
@@ -650,6 +650,21 @@ class CombatScene:
                     self._show_message(
                         "You flee into the darkness!", "game")
 
+    def _roll_loot(self):
+        """Randomly generate 2 goblin drops."""
+        from src.scenes.chest_scene import PotionItem, CandleItem, GoldItem
+
+        def _one_drop():
+            roll = random.random()
+            if roll < 0.40:
+                return PotionItem()
+            elif roll < 0.70:
+                return GoldItem(random.choice([5, 10, 15]))
+            else:
+                return CandleItem()
+
+        return [_one_drop(), _one_drop()]
+
     def _use_relic(self, relic):
         """Activate a relic by item instance."""
         from src.scenes.chest_scene import ShieldItem, SunSwordItem
@@ -675,6 +690,7 @@ class CombatScene:
                 msg = f"You slash with your sword for {damage} damage! ({self.goblin_hp}/{GOBLIN_MAX_HP} HP)"
 
             if self.goblin_hp <= 0:
+                self._goblin_loot = self._roll_loot()
                 self._show_message(msg + " The goblin is defeated!", STATE_VICTORY)
             else:
                 self._show_message(msg, STATE_ENEMY_ACTION)
@@ -748,7 +764,7 @@ class CombatScene:
                         elif ns == "game":
                             return "game"
                         elif ns == STATE_VICTORY:
-                            return "game"
+                            return "loot"
                         elif ns == STATE_DEFEAT:
                             return "game"   # for now just go back
                         else:

@@ -1,8 +1,10 @@
 -------------------------
 Things that need fixing:
 # Double encounter with enemy
-#
+# Map Does not track enemy movement
+# Fix annoying lighting
 ----------
 Things to add:
-#
+# show locked doors on map
+# 
 -------------------------

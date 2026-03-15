@@ -24,6 +24,8 @@ class CandleItem(Item):
     def __init__(self):
         super().__init__("Candle", "A dusty wax candle. It flickers faintly.",
                          (210, 190, 120))
+        self.stackable = True
+        self.amount    = 1
 
     def draw_icon(self, surface, cx, cy, size):
         s = size
@@ -51,6 +53,8 @@ class PotionItem(Item):
         super().__init__("Healing Potion",
                          "A red vial. Restores 5 HP when used in combat.",
                          (180, 40, 40))
+        self.stackable = True
+        self.amount    = 1
 
     def draw_icon(self, surface, cx, cy, size):
         s = size
@@ -150,6 +154,96 @@ class ShieldItem(Item):
         pygame.draw.line(surface, (110,140,170),(cx,cy-s//4),(cx,cy+s//4),2)
         pygame.draw.line(surface, (110,140,170),(cx-s//4,cy),(cx+s//4,cy),2)
 
+
+
+
+# ---------------------------------------------------------------------------
+
+class GoldItem(Item):
+    def __init__(self, amount=10):
+        self.amount    = amount
+        self.stackable = True
+        super().__init__(f"Gold",
+                         f"{amount} gold coins, shiny and heavy.",
+                         (220, 185, 40))
+
+    def draw_icon(self, surface, cx, cy, size):
+        s = size
+        # Stack of coins
+        for i in range(3):
+            oy = i * 4
+            pygame.draw.ellipse(surface, (180,145,25),
+                                (cx-s//3, cy+s//6-oy, s//1.5, s//4))
+            pygame.draw.ellipse(surface, (220,185,40),
+                                (cx-s//3, cy+s//6-oy-3, s//1.5, s//4))
+            pygame.draw.ellipse(surface, (240,210,80),
+                                (cx-s//3+2, cy+s//6-oy-3, s//2, s//6))
+
+
+# ---------------------------------------------------------------------------
+
+class KeyItem(Item):
+    def __init__(self, key_id: str = "key_1"):
+        self.key_id = key_id
+        super().__init__("Dungeon Key",
+                         "An old iron key. Opens a locked door somewhere.",
+                         (160, 140, 80))
+
+    def draw_icon(self, surface, cx, cy, size):
+        s  = size
+        # Key bow (circle)
+        pygame.draw.circle(surface, (140,115,50), (cx-s//4, cy-s//5), s//5+1)
+        pygame.draw.circle(surface, (180,150,65), (cx-s//4, cy-s//5), s//5)
+        pygame.draw.circle(surface, (60,48,20),   (cx-s//4, cy-s//5), s//8)
+        # Key shaft
+        pygame.draw.line(surface, (160,130,55),
+                         (cx-s//4+s//5, cy-s//5),
+                         (cx+s//3,      cy-s//5), 4)
+        # Key teeth
+        pygame.draw.line(surface, (160,130,55),
+                         (cx+s//5,  cy-s//5),
+                         (cx+s//5,  cy-s//5+s//6), 3)
+        pygame.draw.line(surface, (160,130,55),
+                         (cx+s//3,  cy-s//5),
+                         (cx+s//3,  cy-s//5+s//8), 3)
+
+
+
+# ---------------------------------------------------------------------------
+
+class ExitKeyItem(Item):
+    def __init__(self):
+        super().__init__("Exit Key",
+                         "A heavy iron key engraved with a sun. Opens the dungeon exit.",
+                         (200, 170, 60))
+        self.stackable = False
+
+    def draw_icon(self, surface, cx, cy, size):
+        s  = size
+        # Large ornate key
+        pygame.draw.circle(surface, (180,150,45), (cx-s//4, cy-s//5), s//4+1)
+        pygame.draw.circle(surface, (220,185,65), (cx-s//4, cy-s//5), s//4)
+        pygame.draw.circle(surface, (80,60,15),   (cx-s//4, cy-s//5), s//8)
+        # Sun detail on bow
+        for a in range(0,360,60):
+            r2 = math.radians(a)
+            rx = int(math.cos(r2)*(s//4+3))
+            ry = int(math.sin(r2)*(s//4+3))
+            pygame.draw.line(surface,(220,185,65),
+                             (cx-s//4+int(math.cos(r2)*s//5),
+                              cy-s//5+int(math.sin(r2)*s//5)),
+                             (cx-s//4+rx, cy-s//5+ry), 1)
+        # Shaft
+        pygame.draw.line(surface,(200,165,55),
+                         (cx-s//4+s//4, cy-s//5),
+                         (cx+s//3,      cy-s//5), 4)
+        # Teeth
+        pygame.draw.line(surface,(200,165,55),
+                         (cx+s//8,  cy-s//5),
+                         (cx+s//8,  cy-s//5+s//5), 3)
+        pygame.draw.line(surface,(200,165,55),
+                         (cx+s//3,  cy-s//5),
+                         (cx+s//3,  cy-s//5+s//7), 3)
 
 # ===========================================================================
 # Item slot
