@@ -111,12 +111,11 @@ class ShopScene:
         total = self.inventory.stack_count(gold_item)
         if total < amount:
             return False
-        # Reduce stack
+        # Remove entire gold stack then add back remainder
         remaining = total - amount
-        self.inventory.remove_one(type(gold_item))   # remove whole stack
+        self.inventory.remove(gold_item)
         if remaining > 0:
-            new_gold = GoldItem(remaining)
-            self.inventory.add(new_gold)
+            self.inventory.add(GoldItem(remaining))
         return True
 
     def _sell_item(self, item):
@@ -652,8 +651,14 @@ class BlacksmithScene(ShopScene):
                         (cx+ox2,cy-s//3-6),(cx+ox2-4,cy-s//3),
                         (cx+ox2+4,cy-s//3)])
 
+        from src.scenes.chest_scene import (IronHelmet, IronChestplate,
+                                               IronLeggings, IronBoots)
         self.shop_items = [
-            ShopItem(HeavySwordItem,   25, 2, "Deals 10 damage. Two-handed."),
+            ShopItem(IronHelmet,      18, 3, "Reduces damage by 1."),
+            ShopItem(IronChestplate,  32, 2, "Reduces damage by 3."),
+            ShopItem(IronLeggings,    24, 2, "Reduces damage by 2."),
+            ShopItem(IronBoots,       18, 3, "Reduces damage by 1."),
+            ShopItem(HeavySwordItem,  25, 2, "Deals 10 damage. Two-handed."),
             ShopItem(ShieldItem,       22, 2, "Blocks one hit entirely."),
             ShopItem(ChainmailItem,    18, 3, "Reduces damage by 2 per hit."),
             ShopItem(ArrowBundleItem,   8,-1, "10 arrows. For future use."),

@@ -14,8 +14,11 @@ from src.scenes.world_map_scene import WorldMapScene
 from src.scenes.town_scene import TownScene
 from src.scenes.shop_scene import InnScene, GeneralShopScene, BlacksmithScene, AntiquityScene
 from src.inventory import Inventory
-from src.save_system import GameState, capture, restore, save_slot, format_playtime
+from src.armour import ArmourSystem
+from src.scenes.armour_scene import ArmourScene
+from src.save_system import GameState, capture, restore, save_slot, load_slot, format_playtime
 from src.scenes.saves_scene import SavesScene
+from src.scenes.death_scene import DeathScene
 
 
 def _make_game_scene(screen, inventory, exit_unlocked=False):
@@ -48,7 +51,9 @@ def main():
     pygame.display.set_caption("Dungeon")
 
     inventory       = Inventory()
+    armour          = ArmourSystem()
     game_scene      = None
+    pre_inv_scene   = "game"   # scene before inventory was opened
     combat          = None
     dungeon_cleared = False
     prev_scene      = "menu"
@@ -77,6 +82,7 @@ def main():
             if result == "new_game":
                 # Reset everything for a fresh run
                 inventory       = Inventory()
+                armour          = ArmourSystem()
                 game_scene      = None
                 dungeon_cleared = False
                 scene           = "start"
@@ -113,12 +119,12 @@ def main():
             elif result == "saves":
                 # Capture current state for saving
                 capture(game_state, inventory, game_scene, dungeon_cleared,
-                        "dungeon" if prev_scene == "game" else "town")
+                        "dungeon" if prev_scene == "game" else "town", armour)
                 r2 = SavesScene(screen, game_state=game_state, mode="both").run()
                 if isinstance(r2, tuple) and r2[0] == "loaded":
                     loaded = r2[1]
                     inventory       = Inventory()
-                    restore(loaded, inventory)
+                    restore(loaded, inventory, armour)
                     game_state      = loaded
                     dungeon_cleared = loaded.dungeon_cleared
                     game_scene      = None
@@ -180,11 +186,13 @@ def main():
         # Combat
         # ----------------------------------------------------------------
         elif scene == "boss_combat":
-            combat = CombatScene(screen, inventory, is_boss=True)
+            combat = CombatScene(screen, inventory, is_boss=True, armour=armour)
             result = combat.run()
             if game_scene:
                 game_scene.combat_cooldown = game_scene.COMBAT_COOLDOWN
-            if result == "loot":
+            if result == "death":
+                scene = "death"
+            elif result == "loot":
                 # Boss defeated — mark it
                 game_scene.boss_defeated = True
                 game_state.enemies_defeated += 1
@@ -197,7 +205,7 @@ def main():
                 scene = "game"
 
         elif scene == "combat":
-            combat     = CombatScene(screen, inventory)
+            combat     = CombatScene(screen, inventory, armour=armour)
             prev_scene = "game"
             result     = combat.run()
             if game_scene:
@@ -205,6 +213,8 @@ def main():
 
             if result == "pause":
                 scene = "pause"
+            elif result == "death":
+                scene = "death"
             elif result == "loot":
                 if game_scene and game_scene.goblins:
                     ts  = 48
@@ -262,6 +272,10 @@ def main():
             result = InventoryScene(screen, inventory).run()
             if result == "exit":
                 scene = "exit"
+            elif result == "armour":
+                scene = "armour"
+            elif result == "back":
+                scene = prev_scene
             else:
                 scene = prev_scene
 
@@ -282,7 +296,7 @@ def main():
         # ----------------------------------------------------------------
         elif scene == "town":
             # Autosave slot 0 when arriving in town
-            capture(game_state, inventory, game_scene, dungeon_cleared, "town")
+            capture(game_state, inventory, game_scene, dungeon_cleared, "town", armour)
             save_slot(0, game_state)
             prev_scene = "town"
             result     = TownScene(screen, inventory, "Ashenvale").run()
@@ -299,6 +313,7 @@ def main():
                         "pause" if r2 == "pause" else r2
             elif result == "inventory":
                 prev_scene = "town"
+                pre_inv_scene = "town"
                 scene = "inventory"
             elif result == "pause":
                 prev_scene = "town"
@@ -331,6 +346,38 @@ def main():
         # ----------------------------------------------------------------
         # World map
         # ----------------------------------------------------------------
+        elif scene == "death":
+            result = DeathScene(screen).run()
+            if result == "load_save":
+                # Load the autosave (slot 0) or most recent slot
+                loaded = None
+                for slot in range(3):
+                    s2 = load_slot(slot)
+                    if s2 is not None:
+                        if loaded is None or s2.save_time > loaded.save_time:
+                            loaded = s2
+                if loaded:
+                    inventory   = Inventory()
+                    restore(loaded, inventory)
+                    game_state  = loaded
+                    dungeon_cleared = loaded.dungeon_cleared
+                    game_scene  = None
+                    scene = "town" if loaded.current_location == "town" else "start"
+                else:
+                    # No save exists — back to main menu
+                    scene = "main_menu"
+            else:
+                scene = "main_menu"
+
+        elif scene == "armour":
+            result = ArmourScene(screen, inventory, armour).run()
+            if result == "exit":
+                scene = "exit"
+            elif result == "inventory":
+                scene = "inventory"
+            else:
+                scene = pre_inv_scene
+
         elif scene == "world_map":
             destination = WorldMapScene(screen, "Ashenvale").run()
             if destination == "exit":

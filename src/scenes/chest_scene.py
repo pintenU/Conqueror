@@ -245,6 +245,120 @@ class ExitKeyItem(Item):
                          (cx+s//3,  cy-s//5),
                          (cx+s//3,  cy-s//5+s//7), 3)
 
+
+
+# ===========================================================================
+# Armour items
+# ===========================================================================
+
+class ArmourItem(Item):
+    """Base class for all armour pieces."""
+    slot        = "none"    # helmet / chestplate / leggings / boots
+    defence     = 0         # damage reduction per hit
+    stackable   = False
+    material    = "iron"
+
+    def __init__(self, name, description, icon_color, slot, defence, material="iron"):
+        super().__init__(name, description, icon_color)
+        self.slot     = slot
+        self.defence  = defence
+        self.material = material
+
+
+class IronHelmet(ArmourItem):
+    def __init__(self):
+        super().__init__("Iron Helmet",
+                         "Sturdy iron headgear. Reduces damage by 1.",
+                         (160,170,185), "helmet", 1)
+
+    def draw_icon(self, surface, cx, cy, size):
+        s  = size
+        hw = s//2
+        # Dome
+        pygame.draw.ellipse(surface,(130,140,155),(cx-hw,cy-hw,hw*2,hw))
+        pygame.draw.ellipse(surface,(160,170,185),(cx-hw,cy-hw,hw*2,hw),2)
+        # Brim
+        pygame.draw.rect(surface,(130,140,155),(cx-hw-4,cy-4,hw*2+8,8))
+        pygame.draw.rect(surface,(160,170,185),(cx-hw-4,cy-4,hw*2+8,8),2)
+        # Visor slit
+        pygame.draw.rect(surface,(50,55,65),(cx-hw+4,cy-6,hw*2-8,4))
+        # Cheek guards
+        pygame.draw.rect(surface,(130,140,155),(cx-hw,cy-4,8,s//3))
+        pygame.draw.rect(surface,(130,140,155),(cx+hw-8,cy-4,8,s//3))
+
+
+class IronChestplate(ArmourItem):
+    def __init__(self):
+        super().__init__("Iron Chestplate",
+                         "Heavy iron armour. Reduces damage by 3.",
+                         (150,160,175), "chestplate", 3)
+
+    def draw_icon(self, surface, cx, cy, size):
+        s  = size
+        hw = s//2
+        # Body plate
+        pts = [(cx-hw+4, cy-hw+4),(cx-hw,cy-4),(cx-hw,cy+hw-2),
+               (cx+hw,cy+hw-2),(cx+hw,cy-4),(cx+hw-4,cy-hw+4)]
+        pygame.draw.polygon(surface,(120,130,145),pts)
+        pygame.draw.polygon(surface,(155,165,180),pts,2)
+        # Shoulder pads
+        for ox2 in [-hw-2, hw-6]:
+            pygame.draw.ellipse(surface,(130,140,155),(cx+ox2,cy-hw,10,12))
+            pygame.draw.ellipse(surface,(155,165,180),(cx+ox2,cy-hw,10,12),1)
+        # Centre line
+        pygame.draw.line(surface,(100,110,125),(cx,cy-hw+6),(cx,cy+hw-4),2)
+        # Horizontal bands
+        for dy in [-s//6, s//6]:
+            pygame.draw.line(surface,(100,110,125),(cx-hw+2,cy+dy),(cx+hw-2,cy+dy),1)
+
+
+class IronLeggings(ArmourItem):
+    def __init__(self):
+        super().__init__("Iron Leggings",
+                         "Iron leg protection. Reduces damage by 2.",
+                         (145,155,170), "leggings", 2)
+
+    def draw_icon(self, surface, cx, cy, size):
+        s  = size
+        hw = s//2
+        # Waist band
+        pygame.draw.rect(surface,(120,130,145),(cx-hw,cy-hw,hw*2,s//5))
+        pygame.draw.rect(surface,(150,160,175),(cx-hw,cy-hw,hw*2,s//5),2)
+        # Left leg
+        pygame.draw.rect(surface,(115,125,140),(cx-hw,cy-hw+s//5,hw-2,s*2//3))
+        pygame.draw.rect(surface,(145,155,170),(cx-hw,cy-hw+s//5,hw-2,s*2//3),2)
+        # Right leg
+        pygame.draw.rect(surface,(115,125,140),(cx+2,cy-hw+s//5,hw-2,s*2//3))
+        pygame.draw.rect(surface,(145,155,170),(cx+2,cy-hw+s//5,hw-2,s*2//3),2)
+        # Knee plates
+        for lx in [cx-hw+2, cx+2]:
+            pygame.draw.rect(surface,(140,150,165),(lx,cy,hw-4,s//6))
+            pygame.draw.rect(surface,(155,165,180),(lx,cy,hw-4,s//6),1)
+
+
+class IronBoots(ArmourItem):
+    def __init__(self):
+        super().__init__("Iron Boots",
+                         "Iron footwear. Reduces damage by 1.",
+                         (140,150,165), "boots", 1)
+
+    def draw_icon(self, surface, cx, cy, size):
+        s  = size
+        hw = s//2
+        for ox2, flip in [(-hw//2-2, -1), (2, 1)]:
+            bx = cx + ox2
+            # Ankle
+            pygame.draw.rect(surface,(115,125,140),(bx,cy-s//3,hw//2+2,s//3))
+            pygame.draw.rect(surface,(145,155,170),(bx,cy-s//3,hw//2+2,s//3),2)
+            # Foot (extends to one side)
+            foot_w = hw//2+6
+            foot_x = bx if flip==1 else bx-4
+            pygame.draw.rect(surface,(120,130,145),(foot_x,cy,foot_w,s//4))
+            pygame.draw.rect(surface,(145,155,170),(foot_x,cy,foot_w,s//4),2)
+            # Toe cap
+            pygame.draw.ellipse(surface,(130,140,155),
+                                (foot_x+foot_w-8,cy-2,10,s//4+4))
+
 # ===========================================================================
 # Item slot
 # ===========================================================================

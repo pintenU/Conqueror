@@ -41,6 +41,7 @@ class GameState:
 
         # Chest states — list of {"opened": bool, "items": [...]}
         self.chest_states      = []
+        self.armour_data       = {}  # slot -> class name
 
         # Timestamp
         self.save_time         = ""
@@ -62,6 +63,7 @@ class GameState:
             "inventory_data":   self.inventory_data,
             "door_states":      self.door_states,
             "chest_states":     self.chest_states,
+            "armour_data":      self.armour_data,
             "save_time":        self.save_time,
             "slot":             self.slot,
         }
@@ -141,7 +143,8 @@ def _dict_to_item(d: dict):
 # ---------------------------------------------------------------------------
 
 def capture(state: GameState, inventory, game_scene=None,
-            dungeon_cleared=False, current_location="dungeon"):
+            dungeon_cleared=False, current_location="dungeon",
+            armour=None):
     """Snapshot current game into a GameState."""
     state.dungeon_cleared  = dungeon_cleared
     state.current_location = current_location
@@ -158,6 +161,9 @@ def capture(state: GameState, inventory, game_scene=None,
     state.gold_collected = inventory.count(GoldItem)
 
     # Door and chest states from game_scene
+    if armour:
+        state.armour_data = armour.to_dict()
+
     if game_scene:
         state.door_states  = [d.locked for d in game_scene.locked_doors]
         state.chest_states = [
@@ -167,12 +173,15 @@ def capture(state: GameState, inventory, game_scene=None,
         ]
 
 
-def restore(state: GameState, inventory):
+def restore(state: GameState, inventory, armour=None):
     """Restore inventory from a GameState."""
     # Clear current inventory
     inventory._stacks = {}
     inventory._order  = []
     inventory._uid    = 0
+
+    if armour and state.armour_data:
+        armour.from_dict(state.armour_data)
 
     for d in state.inventory_data:
         item = _dict_to_item(d)

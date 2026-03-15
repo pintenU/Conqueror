@@ -157,7 +157,7 @@ class InventoryScene:
         if self.use_mode:
             hint_txt = "↑ ↓  select    ENTER  use key    ESC  cancel"
         else:
-            hint_txt = "↑ ↓  navigate    I / ESC  close"
+            hint_txt = "↑ ↓  navigate    A  armour    I / ESC  close"
         hints = self.font_desc.render(hint_txt, True, (70,56,34))
         self.screen.blit(hints,(self.W//2-hints.get_width()//2, footer_y))
 
@@ -184,8 +184,10 @@ class InventoryScene:
                 if event.type == pygame.QUIT:
                     return "exit"
                 if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_a and not self.use_mode:
+                        return "armour"
                     if event.key in (pygame.K_i, pygame.K_ESCAPE):
-                        return "game"
+                        return "back"
                     if event.key == pygame.K_UP:
                         self.selected = max(0, self.selected-1)
                     if event.key == pygame.K_DOWN:

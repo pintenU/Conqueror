@@ -6,9 +6,8 @@ class Inventory:
         self._order    = []   # stack keys in insertion order
         self._uid      = 0    # for unique keys on non-stackables
 
-        from src.scenes.chest_scene import SwordItem, SunSwordItem, PotionItem
+        from src.scenes.chest_scene import SwordItem, PotionItem
         self.add(SwordItem())
-        self.add(SunSwordItem())
         self.add(PotionItem())
 
     # ------------------------------------------------------------------ #

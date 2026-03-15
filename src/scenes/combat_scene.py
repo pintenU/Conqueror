@@ -447,9 +447,10 @@ BOSS_NAME      = "GOBLIN KING"
 
 
 class CombatScene:
-    def __init__(self, screen, inventory, is_boss=False):
+    def __init__(self, screen, inventory, is_boss=False, armour=None):
         self.inventory = inventory
         self.is_boss   = is_boss
+        self.armour    = armour
         self.screen = screen
         self.W, self.H = screen.get_size()
         self.clock = pygame.time.Clock()
@@ -905,14 +906,15 @@ class CombatScene:
                     "The shield holds firm.",
                     STATE_PLAYER_CHOOSE)
                 return
-            dmg = self._goblin_dmg
+            defence = self.armour.total_defence() if self.armour else 0
+            dmg = max(1, self._goblin_dmg - defence)
             self.player_hp = max(0, self.player_hp - dmg)
             self.combat_player.start_flash()
             self._goblin_attacked = False   # reset for next round
 
             msg = f"The goblin clubs you for {dmg} damage! ({self.player_hp}/{PLAYER_MAX_HP} HP)"
             if self.player_hp <= 0:
-                self._show_message(msg + " You have been defeated...", STATE_DEFEAT)
+                self._show_message(msg + " You have fallen in battle...", STATE_DEFEAT)
             else:
                 self._show_message(msg, STATE_PLAYER_CHOOSE)
             # Reset timer so this block doesn't fire again
@@ -958,7 +960,7 @@ class CombatScene:
                         elif ns == STATE_VICTORY:
                             return "loot"
                         elif ns == STATE_DEFEAT:
-                            return "game"   # for now just go back
+                            return "death"
                         else:
                             self.state = ns
 
