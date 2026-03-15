@@ -17,7 +17,7 @@ from src.inventory import Inventory
 from src.armour import ArmourSystem
 from src.scenes.armour_scene import ArmourScene
 from src.player_stats import PlayerStats, EXP_GOBLIN, EXP_BOSS
-from src.entities.entity_factory import get_stat
+from src.entities.entity_factory import get_stat, roll_loot as factory_loot
 from src.scenes.levelup_scene import LevelUpScene
 from src.save_system import GameState, capture, restore, save_slot, load_slot, format_playtime
 from src.scenes.saves_scene import SavesScene
@@ -215,14 +215,20 @@ def main():
                     game_state.player_max_hp = player_stats.max_hp
                 loot = getattr(combat,'_goblin_loot',[])
                 # Boss always drops good loot
-                from src.entities.entity_factory import roll_loot as factory_loot
                 combat._goblin_loot = factory_loot('goblin_king')
                 scene = "loot"
             else:
                 scene = "game"
 
         elif scene == "combat":
-            combat     = CombatScene(screen, inventory, armour=armour, player_hp=game_state.player_hp, player_stats=player_stats)
+            # Check if this is a test enemy combat
+            _enemy_type = None
+            if game_scene and game_scene._active_test_enemy:
+                _enemy_type = game_scene._active_test_enemy.enemy_type.lower().replace(" ","_")
+            combat = CombatScene(screen, inventory, armour=armour,
+                                 player_hp=game_state.player_hp,
+                                 player_stats=player_stats,
+                                 enemy_type=_enemy_type)
             prev_scene = "game"
             result     = combat.run()
             if game_scene:
@@ -251,7 +257,18 @@ def main():
                     pass  # key drop guarantee removed — keys in chests
                 if result == "loot":
                     game_state.enemies_defeated += 1
-                    leveled = player_stats.add_exp(EXP_GOBLIN)
+                    # Check if it was a test enemy
+                    _exp = EXP_GOBLIN
+                    if game_scene and game_scene._active_test_enemy:
+                        e = game_scene._active_test_enemy
+                        if e in game_scene.test_enemies:
+                            game_scene.test_enemies.remove(e)
+                        from src.entities.entity_factory import get_stat
+                        _exp = get_stat(e.definition["name"].lower().replace(" ","_"), "exp") or EXP_GOBLIN
+                        combat._goblin_loot = factory_loot(
+                            e.definition["name"].lower().replace(" ","_"))
+                        game_scene._active_test_enemy = None
+                    leveled = player_stats.add_exp(_exp)
                     for new_level in leveled:
                         LevelUpScene(screen, player_stats, new_level).run()
                         game_state.player_hp = min(game_state.player_hp,

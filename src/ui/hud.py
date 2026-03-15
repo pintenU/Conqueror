@@ -68,8 +68,8 @@ class HUD:
 
     def update(self, dt, player_stats, game_state):
         """Smooth bar animations."""
-        target_hp  = player_stats.max_hp and \
-                     game_state.player_hp / player_stats.max_hp
+        target_hp  = (game_state.player_hp / player_stats.max_hp
+                      if player_stats.max_hp > 0 else 1.0)
         target_exp = player_stats.exp_progress()
 
         self._hp_fill  += (target_hp  - self._hp_fill)  * 6 * dt
@@ -123,6 +123,8 @@ class HUD:
             hp_col = (200, int(160*t_hp*2), 40)
         else:
             hp_col = (210, 40, 40)
+        # Clamp all colour channels to valid range
+        hp_col = tuple(max(0, min(255, c)) for c in hp_col)
 
         self._draw_bar(hp_bar_x, y0+8, hp_bar_w, 14,
                        self._hp_fill, hp_col,

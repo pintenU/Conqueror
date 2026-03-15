@@ -71,6 +71,17 @@ def _build_room_map():
     _corridor_v(g, 40, 25, 2)   # R2 ↓ Side B (rows 25-26)
     _corridor_v(g, 57, 12, 2)   # R3 ↑ Side C (rows 12-13)
 
+    # --- Test room --- south of entrance (wider and taller for 2 rows)
+    _room(g, 1, 27, 38, 12)
+    # Corridor connecting entrance bottom to test room top
+    for r2 in range(25, 28):
+        for col2 in range(5, 8):
+            g[r2][col2] = FLOOR
+    # Open entrance south wall and test room north wall
+    for col2 in range(5, 8):
+        g[24][col2] = FLOOR
+        g[27][col2] = FLOOR
+
     # --- Punch doorways through room walls ---
     # Horizontal corridors need the adjoining room walls opened
     for r in range(17, 20):
@@ -126,6 +137,9 @@ TORCH_POSITIONS = [
     (54,4),(62,4),(54,10),(62,10),
     # Final
     (69,12),(76,12),(69,24),(76,24),
+    # Test room — wider, more torches
+    (2,28),(10,28),(20,28),(30,28),(37,28),
+    (2,34),(10,34),(20,34),(30,34),(37,34),
 ]
 
 GOBLIN_PATROLS = [
@@ -152,6 +166,31 @@ GOBLIN_PATROLS = [
 
 # Goblin King position in the final room (centre)
 BOSS_PATROL = [(70, 18), (76, 18)]
+
+# Test room enemy positions — single tile = stand still
+TEST_ENEMY_PATROLS = {
+    # Row 1 — regular enemies
+    "goblin":           [(3,  30)],
+    "skeleton":         [(6,  30)],
+    "troll":            [(9,  30)],
+    "dark_mage":        [(12, 30)],
+    "imp":              [(15, 30)],
+    "dire_rat":         [(18, 30)],
+    "orc_warrior":      [(21, 30)],
+    "stone_golem":      [(24, 30)],
+    "werewolf":         [(27, 30)],
+    "lich":             [(30, 30)],
+    # Row 2 — bosses
+    "bone_lord":        [(3,  33)],
+    "mountain_king":    [(6,  33)],
+    "archmage":         [(9,  33)],
+    "inferno_duke":     [(12, 33)],
+    "rat_king":         [(15, 33)],
+    "warchief_grommak": [(18, 33)],
+    "ancient_colossus": [(21, 33)],
+    "the_alpha":        [(24, 33)],
+    "lich_king":        [(27, 33)],
+}
 
 CHEST_POSITIONS = [
     (10, 22),   # Entrance — potion + exit key slot (FIXED)
@@ -446,6 +485,12 @@ class GameScene:
         self.vignette=self._build_vignette()
         self.player=Player(PLAYER_SPAWN[0],PLAYER_SPAWN[1],TILE_SIZE)
         self.goblins=[spawn_patrol('goblin',p,TILE_SIZE) for p in GOBLIN_PATROLS]
+
+        # Test room enemies — standing still for testing
+        self.test_enemies = [
+            spawn_patrol(etype, patrol, TILE_SIZE)
+            for etype, patrol in TEST_ENEMY_PATROLS.items()
+        ]
         # Goblin King — same movement as goblin but triggers boss fight
         self.boss = spawn_patrol('goblin_king',BOSS_PATROL,TILE_SIZE)
         self.boss_defeated = False
@@ -498,6 +543,7 @@ class GameScene:
         self.locked_doors=[LockedDoor(col,row,ori,kid)
                            for (col,row,ori),kid in zip(LOCKED_DOORS,DOOR_KEY_IDS)]
         self._defeated_goblin_idx=None
+        self._active_test_enemy=None
         self._potion_msg       = ""
         self._potion_msg_timer = 0.0
 
@@ -542,6 +588,17 @@ class GameScene:
         pcx=self.player.px+ts//2; pcy=self.player.py+ts//2
         for g in self.goblins:
             if math.hypot(g.px+ts//2-pcx,g.py+ts//2-pcy)<ts*0.75:
+                return True
+        return False
+
+    def _check_test_combat(self):
+        ts  = TILE_SIZE
+        pcx = self.player.px + ts//2
+        pcy = self.player.py + ts//2
+        for e in self.test_enemies:
+            if math.hypot(e.px+ts//2-pcx, e.py+ts//2-pcy) < ts*0.75:
+                # Remove from test list on combat trigger
+                self._active_test_enemy = e
                 return True
         return False
 
@@ -705,6 +762,8 @@ class GameScene:
 
             for g in self.goblins:
                 g.update(dt,self.player.tile_col,self.player.tile_row)
+            for e in self.test_enemies:
+                e.update(dt,self.player.tile_col,self.player.tile_row)
             if not self.boss_defeated:
                 self.boss.update(dt,self.player.tile_col,self.player.tile_row)
             self.combat_cooldown=max(0.0,self.combat_cooldown-dt)
@@ -720,6 +779,9 @@ class GameScene:
 
             if (not self.player.moving and self.combat_cooldown<=0.0
                     and self._check_combat()):
+                return "combat"
+            if (not self.player.moving and self.combat_cooldown<=0.0
+                    and self._check_test_combat()):
                 return "combat"
             if (not self.player.moving and self.combat_cooldown<=0.0
                     and self._check_boss_combat()):
@@ -740,6 +802,8 @@ class GameScene:
                 chest.draw(self.screen,ox,oy,self.time)
             for g in self.goblins:
                 g.draw(self.screen,ox,oy)
+            for e in self.test_enemies:
+                e.draw(self.screen,ox,oy)
             if not self.boss_defeated:
                 self._draw_boss(ox,oy)
             self.player.draw(self.screen,ox,oy)

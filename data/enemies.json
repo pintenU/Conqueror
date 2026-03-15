@@ -7,11 +7,29 @@
       "damage": 4,
       "exp": 15,
       "speed": 2.2,
-      "color": [80, 148, 60],
+      "color": [
+        80,
+        148,
+        60
+      ],
       "loot_table": [
-        {"item": "PotionItem",  "weight": 40},
-        {"item": "GoldItem",    "weight": 30, "amount": [5, 10, 15]},
-        {"item": "CandleItem",  "weight": 30}
+        {
+          "item": "PotionItem",
+          "weight": 40
+        },
+        {
+          "item": "GoldItem",
+          "weight": 30,
+          "amount": [
+            5,
+            10,
+            15
+          ]
+        },
+        {
+          "item": "CandleItem",
+          "weight": 30
+        }
       ],
       "loot_rolls": 2
     },
@@ -22,11 +40,29 @@
       "damage": 5,
       "exp": 20,
       "speed": 2.6,
-      "color": [200, 195, 175],
+      "color": [
+        200,
+        195,
+        175
+      ],
       "loot_table": [
-        {"item": "GoldItem",    "weight": 50, "amount": [5, 10, 20]},
-        {"item": "CandleItem",  "weight": 30},
-        {"item": "PotionItem",  "weight": 20}
+        {
+          "item": "GoldItem",
+          "weight": 50,
+          "amount": [
+            5,
+            10,
+            20
+          ]
+        },
+        {
+          "item": "CandleItem",
+          "weight": 30
+        },
+        {
+          "item": "PotionItem",
+          "weight": 20
+        }
       ],
       "loot_rolls": 2
     },
@@ -37,11 +73,29 @@
       "damage": 7,
       "exp": 35,
       "speed": 1.6,
-      "color": [90, 130, 80],
+      "color": [
+        90,
+        130,
+        80
+      ],
       "loot_table": [
-        {"item": "GoldItem",    "weight": 45, "amount": [10, 15, 25]},
-        {"item": "PotionItem",  "weight": 35},
-        {"item": "CandleItem",  "weight": 20}
+        {
+          "item": "GoldItem",
+          "weight": 45,
+          "amount": [
+            10,
+            15,
+            25
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 35
+        },
+        {
+          "item": "CandleItem",
+          "weight": 20
+        }
       ],
       "loot_rolls": 3
     },
@@ -52,11 +106,29 @@
       "damage": 9,
       "exp": 30,
       "speed": 1.8,
-      "color": [120, 60, 180],
+      "color": [
+        120,
+        60,
+        180
+      ],
       "loot_table": [
-        {"item": "PotionItem",  "weight": 50},
-        {"item": "GoldItem",    "weight": 30, "amount": [8, 12, 18]},
-        {"item": "CandleItem",  "weight": 20}
+        {
+          "item": "PotionItem",
+          "weight": 50
+        },
+        {
+          "item": "GoldItem",
+          "weight": 30,
+          "amount": [
+            8,
+            12,
+            18
+          ]
+        },
+        {
+          "item": "CandleItem",
+          "weight": 20
+        }
       ],
       "loot_rolls": 2
     },
@@ -67,13 +139,492 @@
       "damage": 12,
       "exp": 120,
       "speed": 1.8,
-      "color": [80, 148, 60],
+      "color": [
+        80,
+        148,
+        60
+      ],
       "is_boss": true,
       "loot_table": [
-        {"item": "GoldItem",    "weight": 60, "amount": [40, 50, 60]},
-        {"item": "PotionItem",  "weight": 40}
+        {
+          "item": "GoldItem",
+          "weight": 60,
+          "amount": [
+            40,
+            50,
+            60
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 40
+        }
       ],
       "loot_rolls": 3
+    },
+    "imp": {
+      "name": "Imp",
+      "display_name": "IMP",
+      "hp": 8,
+      "damage": 6,
+      "exp": 22,
+      "speed": 3.2,
+      "color": [
+        180,
+        50,
+        50
+      ],
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 50,
+          "amount": [
+            3,
+            6,
+            10
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 30
+        },
+        {
+          "item": "CandleItem",
+          "weight": 20
+        }
+      ],
+      "loot_rolls": 2
+    },
+    "dire_rat": {
+      "name": "Dire Rat",
+      "display_name": "DIRE RAT",
+      "hp": 6,
+      "damage": 5,
+      "exp": 18,
+      "speed": 3.8,
+      "color": [
+        130,
+        110,
+        80
+      ],
+      "loot_table": [
+        {
+          "item": "CandleItem",
+          "weight": 50
+        },
+        {
+          "item": "GoldItem",
+          "weight": 30,
+          "amount": [
+            2,
+            4,
+            6
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 20
+        }
+      ],
+      "loot_rolls": 2
+    },
+    "orc_warrior": {
+      "name": "Orc Warrior",
+      "display_name": "ORC WARRIOR",
+      "hp": 18,
+      "damage": 6,
+      "exp": 28,
+      "speed": 2.0,
+      "color": [
+        80,
+        120,
+        55
+      ],
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 45,
+          "amount": [
+            8,
+            12,
+            18
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 35
+        },
+        {
+          "item": "CandleItem",
+          "weight": 20
+        }
+      ],
+      "loot_rolls": 2
+    },
+    "stone_golem": {
+      "name": "Stone Golem",
+      "display_name": "STONE GOLEM",
+      "hp": 35,
+      "damage": 10,
+      "exp": 55,
+      "speed": 1.2,
+      "color": [
+        140,
+        135,
+        125
+      ],
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 60,
+          "amount": [
+            15,
+            20,
+            30
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 40
+        }
+      ],
+      "loot_rolls": 3
+    },
+    "werewolf": {
+      "name": "Werewolf",
+      "display_name": "WEREWOLF",
+      "hp": 28,
+      "damage": 9,
+      "exp": 48,
+      "speed": 2.8,
+      "color": [
+        110,
+        85,
+        60
+      ],
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 40,
+          "amount": [
+            10,
+            15,
+            20
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 40
+        },
+        {
+          "item": "CandleItem",
+          "weight": 20
+        }
+      ],
+      "loot_rolls": 2
+    },
+    "lich": {
+      "name": "Lich",
+      "display_name": "LICH",
+      "hp": 20,
+      "damage": 11,
+      "exp": 60,
+      "speed": 1.5,
+      "color": [
+        120,
+        80,
+        200
+      ],
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 35,
+          "amount": [
+            12,
+            18,
+            25
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 35
+        },
+        {
+          "item": "CandleItem",
+          "weight": 30
+        }
+      ],
+      "loot_rolls": 3
+    },
+    "bone_lord": {
+      "name": "Bone Lord",
+      "display_name": "BONE LORD",
+      "hp": 40,
+      "damage": 8,
+      "exp": 140,
+      "speed": 1.8,
+      "color": [
+        220,
+        215,
+        195
+      ],
+      "is_boss": true,
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 60,
+          "amount": [
+            35,
+            45,
+            55
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 40
+        }
+      ],
+      "loot_rolls": 3
+    },
+    "mountain_king": {
+      "name": "Mountain King",
+      "display_name": "MOUNTAIN KING",
+      "hp": 65,
+      "damage": 11,
+      "exp": 160,
+      "speed": 1.0,
+      "color": [
+        100,
+        145,
+        90
+      ],
+      "is_boss": true,
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 60,
+          "amount": [
+            40,
+            55,
+            70
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 40
+        }
+      ],
+      "loot_rolls": 3
+    },
+    "archmage": {
+      "name": "Archmage",
+      "display_name": "ARCHMAGE",
+      "hp": 35,
+      "damage": 14,
+      "exp": 155,
+      "speed": 1.6,
+      "color": [
+        140,
+        70,
+        220
+      ],
+      "is_boss": true,
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 50,
+          "amount": [
+            30,
+            45,
+            60
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 50
+        }
+      ],
+      "loot_rolls": 3
+    },
+    "inferno_duke": {
+      "name": "Inferno Duke",
+      "display_name": "INFERNO DUKE",
+      "hp": 38,
+      "damage": 10,
+      "exp": 150,
+      "speed": 2.2,
+      "color": [
+        220,
+        60,
+        20
+      ],
+      "is_boss": true,
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 55,
+          "amount": [
+            35,
+            50,
+            65
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 45
+        }
+      ],
+      "loot_rolls": 3
+    },
+    "rat_king": {
+      "name": "Rat King",
+      "display_name": "RAT KING",
+      "hp": 42,
+      "damage": 7,
+      "exp": 135,
+      "speed": 2.6,
+      "color": [
+        150,
+        125,
+        90
+      ],
+      "is_boss": true,
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 55,
+          "amount": [
+            30,
+            40,
+            50
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 45
+        }
+      ],
+      "loot_rolls": 3
+    },
+    "warchief_grommak": {
+      "name": "Warchief Grommak",
+      "display_name": "WARCHIEF GROMMAK",
+      "hp": 55,
+      "damage": 12,
+      "exp": 165,
+      "speed": 1.8,
+      "color": [
+        85,
+        130,
+        60
+      ],
+      "is_boss": true,
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 60,
+          "amount": [
+            45,
+            60,
+            75
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 40
+        }
+      ],
+      "loot_rolls": 3
+    },
+    "ancient_colossus": {
+      "name": "Ancient Colossus",
+      "display_name": "ANCIENT COLOSSUS",
+      "hp": 75,
+      "damage": 13,
+      "exp": 175,
+      "speed": 0.8,
+      "color": [
+        160,
+        155,
+        140
+      ],
+      "is_boss": true,
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 65,
+          "amount": [
+            50,
+            65,
+            80
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 35
+        }
+      ],
+      "loot_rolls": 4
+    },
+    "the_alpha": {
+      "name": "The Alpha",
+      "display_name": "THE ALPHA",
+      "hp": 48,
+      "damage": 13,
+      "exp": 158,
+      "speed": 2.4,
+      "color": [
+        130,
+        100,
+        70
+      ],
+      "is_boss": true,
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 55,
+          "amount": [
+            40,
+            55,
+            70
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 45
+        }
+      ],
+      "loot_rolls": 3
+    },
+    "lich_king": {
+      "name": "Lich King",
+      "display_name": "LICH KING",
+      "hp": 45,
+      "damage": 15,
+      "exp": 180,
+      "speed": 1.4,
+      "color": [
+        130,
+        90,
+        210
+      ],
+      "is_boss": true,
+      "loot_table": [
+        {
+          "item": "GoldItem",
+          "weight": 50,
+          "amount": [
+            50,
+            65,
+            80
+          ]
+        },
+        {
+          "item": "PotionItem",
+          "weight": 50
+        }
+      ],
+      "loot_rolls": 4
     }
   }
 }

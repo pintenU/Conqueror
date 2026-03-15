@@ -216,6 +216,115 @@ class CombatGoblin:
 
 
 
+
+# ---------------------------------------------------------------------------
+# Generic combat sprite proxy — uses enemy.py draw functions
+# ---------------------------------------------------------------------------
+
+class CombatEnemyProxy:
+    """Wraps enemy draw functions for use in the combat scene."""
+
+    def __init__(self, x, y, size, enemy_type, color):
+        self.base_x    = float(x)
+        self.base_y    = float(y)
+        self.x         = float(x)
+        self.y         = float(y)
+        self.size      = size
+        self.enemy_type = enemy_type
+        self.color     = color
+        self.anim_time = 0.0
+        self.flash_timer  = 0.0
+        self.FLASH_DUR    = 0.5
+        self.lunging      = False
+        self.lunge_timer  = 0.0
+        self.LUNGE_DUR    = 0.45
+
+    def start_lunge(self):
+        self.lunging = True
+        self.lunge_timer = 0.0
+
+    def start_flash(self):
+        self.flash_timer = self.FLASH_DUR
+
+    def update(self, dt):
+        self.anim_time   += dt
+        self.flash_timer  = max(0.0, self.flash_timer - dt)
+        if self.lunging:
+            self.lunge_timer += dt
+            t = self.lunge_timer / self.LUNGE_DUR
+            if t >= 1.0:
+                self.lunging = False
+                self.x = self.base_x
+            else:
+                self.x = self.base_x - math.sin(t*math.pi) * self.size * 1.0
+
+    def draw(self, surface):
+        from src.entities.enemy import (
+            _draw_skeleton, _draw_troll, _draw_dark_mage, _draw_generic,
+            _draw_imp, _draw_dire_rat, _draw_orc_warrior,
+            _draw_stone_golem, _draw_werewolf, _draw_lich,
+            _draw_bone_lord, _draw_mountain_king, _draw_archmage,
+            _draw_inferno_duke, _draw_rat_king, _draw_warchief_grommak,
+            _draw_ancient_colossus, _draw_the_alpha, _draw_lich_king)
+        s  = self.size
+        cx = int(self.x); cy = int(self.y)
+        flash  = self.flash_timer / self.FLASH_DUR if self.flash_timer > 0 else 0.0
+        draw_x = cx - s//2; draw_y = cy - s//2
+        t  = self.anim_time; ts = s
+        etype = self.enemy_type
+        if   etype=="skeleton":          _draw_skeleton(surface,draw_x,draw_y,t,ts)
+        elif etype=="troll":             _draw_troll(surface,draw_x,draw_y,t,ts)
+        elif etype=="dark_mage":         _draw_dark_mage(surface,draw_x,draw_y,t,ts)
+        elif etype=="imp":               _draw_imp(surface,draw_x,draw_y,t,ts)
+        elif etype=="dire_rat":          _draw_dire_rat(surface,draw_x,draw_y,t,ts)
+        elif etype=="orc_warrior":       _draw_orc_warrior(surface,draw_x,draw_y,t,ts)
+        elif etype=="stone_golem":       _draw_stone_golem(surface,draw_x,draw_y,t,ts)
+        elif etype=="werewolf":          _draw_werewolf(surface,draw_x,draw_y,t,ts)
+        elif etype=="lich":              _draw_lich(surface,draw_x,draw_y,t,ts)
+        elif etype=="bone_lord":         _draw_bone_lord(surface,draw_x,draw_y,t,ts)
+        elif etype=="mountain_king":     _draw_mountain_king(surface,draw_x,draw_y,t,ts)
+        elif etype=="archmage":          _draw_archmage(surface,draw_x,draw_y,t,ts)
+        elif etype=="inferno_duke":      _draw_inferno_duke(surface,draw_x,draw_y,t,ts)
+        elif etype=="rat_king":          _draw_rat_king(surface,draw_x,draw_y,t,ts)
+        elif etype=="warchief_grommak":  _draw_warchief_grommak(surface,draw_x,draw_y,t,ts)
+        elif etype=="ancient_colossus":  _draw_ancient_colossus(surface,draw_x,draw_y,t,ts)
+        elif etype=="the_alpha":         _draw_the_alpha(surface,draw_x,draw_y,t,ts)
+        elif etype=="lich_king":         _draw_lich_king(surface,draw_x,draw_y,t,ts)
+        else:                            _draw_generic(surface,draw_x,draw_y,t,ts,self.color)
+        if flash > 0:
+            from src.entities.enemy import (
+                _draw_skeleton, _draw_troll, _draw_dark_mage, _draw_generic,
+                _draw_imp, _draw_dire_rat, _draw_orc_warrior,
+                _draw_stone_golem, _draw_werewolf, _draw_lich,
+                _draw_bone_lord, _draw_mountain_king, _draw_archmage,
+                _draw_inferno_duke, _draw_rat_king, _draw_warchief_grommak,
+                _draw_ancient_colossus, _draw_the_alpha, _draw_lich_king)
+            flash_surf = pygame.Surface((s*2, s*2), pygame.SRCALPHA)
+            etype2 = self.enemy_type
+            if   etype2=="skeleton":         _draw_skeleton(flash_surf,s//2,s//2,t,s)
+            elif etype2=="troll":            _draw_troll(flash_surf,s//2,s//2,t,s)
+            elif etype2=="dark_mage":        _draw_dark_mage(flash_surf,s//2,s//2,t,s)
+            elif etype2=="imp":              _draw_imp(flash_surf,s//2,s//2,t,s)
+            elif etype2=="dire_rat":         _draw_dire_rat(flash_surf,s//2,s//2,t,s)
+            elif etype2=="orc_warrior":      _draw_orc_warrior(flash_surf,s//2,s//2,t,s)
+            elif etype2=="stone_golem":      _draw_stone_golem(flash_surf,s//2,s//2,t,s)
+            elif etype2=="werewolf":         _draw_werewolf(flash_surf,s//2,s//2,t,s)
+            elif etype2=="lich":             _draw_lich(flash_surf,s//2,s//2,t,s)
+            elif etype2=="bone_lord":        _draw_bone_lord(flash_surf,s//2,s//2,t,s)
+            elif etype2=="mountain_king":    _draw_mountain_king(flash_surf,s//2,s//2,t,s)
+            elif etype2=="archmage":         _draw_archmage(flash_surf,s//2,s//2,t,s)
+            elif etype2=="inferno_duke":     _draw_inferno_duke(flash_surf,s//2,s//2,t,s)
+            elif etype2=="rat_king":         _draw_rat_king(flash_surf,s//2,s//2,t,s)
+            elif etype2=="warchief_grommak": _draw_warchief_grommak(flash_surf,s//2,s//2,t,s)
+            elif etype2=="ancient_colossus": _draw_ancient_colossus(flash_surf,s//2,s//2,t,s)
+            elif etype2=="the_alpha":        _draw_the_alpha(flash_surf,s//2,s//2,t,s)
+            elif etype2=="lich_king":        _draw_lich_king(flash_surf,s//2,s//2,t,s)
+            else:                            _draw_generic(flash_surf,s//2,s//2,t,s,self.color)
+            white = pygame.Surface((s*2, s*2), pygame.SRCALPHA)
+            white.fill((255,255,255,int(flash*180)))
+            flash_surf.blit(white,(0,0),special_flags=pygame.BLEND_RGBA_MULT)
+            surface.blit(flash_surf,(draw_x-s//2, draw_y-s//2))
+
 # ---------------------------------------------------------------------------
 # Goblin King combat sprite
 # ---------------------------------------------------------------------------
@@ -448,12 +557,13 @@ BOSS_NAME      = get_stat('goblin_king','display_name')
 
 
 class CombatScene:
-    def __init__(self, screen, inventory, is_boss=False, armour=None, player_hp=None, player_stats=None):
+    def __init__(self, screen, inventory, is_boss=False, armour=None, player_hp=None, player_stats=None, enemy_type=None):
         self.inventory = inventory
         self.is_boss   = is_boss
         self.armour    = armour
-        self._start_hp   = player_hp
+        self._start_hp    = player_hp
         self.player_stats = player_stats
+        self.enemy_type   = enemy_type  # overrides default goblin stats
         self.screen = screen
         self.W, self.H = screen.get_size()
         self.clock = pygame.time.Clock()
@@ -465,7 +575,7 @@ class CombatScene:
 
         self.PANEL_H     = int(self.H * 0.32)
         self.BATTLE_H    = self.H - self.PANEL_H
-        self.SPRITE_SIZE = int(min(self.W, self.BATTLE_H) * 0.28)
+        self.SPRITE_SIZE = int(min(self.W, self.BATTLE_H) * 0.38)
 
         # Sprites
         px = int(self.W * 0.22)
@@ -473,7 +583,7 @@ class CombatScene:
         self.combat_player = CombatPlayer(px, py, self.SPRITE_SIZE)
 
         ex = int(self.W * 0.72)
-        ey = int(self.BATTLE_H * 0.35)
+        ey = int(self.BATTLE_H * 0.50)   # centred vertically
         if is_boss:
             boss_size = int(self.SPRITE_SIZE * 1.55)
             self.combat_goblin = CombatGoblinKing(ex, int(self.BATTLE_H*0.40), boss_size)
@@ -481,6 +591,23 @@ class CombatScene:
             self.goblin_max_hp = BOSS_MAX_HP
             self._goblin_name  = BOSS_NAME
             self._goblin_dmg   = BOSS_DAMAGE
+        elif enemy_type and enemy_type not in ("goblin", None):
+            # Load stats from enemies.json via factory
+            from src.entities.entity_factory import get_stat, get_definition
+            defn = get_definition(enemy_type)
+            self.goblin_hp     = defn["hp"]
+            self.goblin_max_hp = defn["hp"]
+            self._goblin_name  = defn["display_name"]
+            self._goblin_dmg   = defn["damage"]
+            # Pick sprite based on type
+            from src.entities.enemy import (
+                _draw_skeleton, _draw_troll, _draw_dark_mage, _draw_generic)
+            # Size multipliers — troll is bigger, mage is slimmer
+            _size_mult = {"troll": 1.2, "skeleton": 0.95,
+                          "dark_mage": 0.9}.get(enemy_type, 1.0)
+            _esize = int(self.SPRITE_SIZE * _size_mult)
+            self.combat_goblin = CombatEnemyProxy(
+                ex, ey, _esize, enemy_type, tuple(defn["color"]))
         else:
             self.combat_goblin = CombatGoblin(ex, ey, self.SPRITE_SIZE)
             self.goblin_hp     = GOBLIN_MAX_HP
@@ -533,6 +660,17 @@ class CombatScene:
         self._relic_selected_idx = 0
 
         self.bg = self._build_background()
+
+        # Ability system
+        self._turn_count       = 0    # increments each time enemy acts
+        self._ability_interval = 3    # every 3rd enemy turn triggers ability
+        self._burn_turns       = 0    # imp burn: turns remaining
+        self._burn_dmg         = 2    # imp burn damage per turn
+        self._cursed           = False  # dark mage curse: next hit doubled
+        self._rage_active      = False  # orc rage: damage boosted
+        self._hardened         = False  # stone golem: damage reduced
+        self._parry_active     = False  # skeleton: blocks next player attack
+        self._goblin_dmg_base  = self._goblin_dmg  # store base for rage reset
 
     # ------------------------------------------------------------------ #
     # Helpers
@@ -845,19 +983,9 @@ class CombatScene:
                         "You flee into the darkness!", "game")
 
     def _roll_loot(self):
-        """Randomly generate 2 goblin drops."""
-        from src.scenes.chest_scene import PotionItem, CandleItem, GoldItem
-
-        def _one_drop():
-            roll = random.random()
-            if roll < 0.40:
-                return PotionItem()
-            elif roll < 0.70:
-                return GoldItem(random.choice([5, 10, 15]))
-            else:
-                return CandleItem()
-
-        return [_one_drop(), _one_drop()]
+        """Roll loot using the entity factory loot table."""
+        enemy_type = "goblin_king" if self.is_boss else                      (self.enemy_type if self.enemy_type else "goblin")
+        return factory_loot(enemy_type)
 
     def _use_relic(self, relic):
         """Activate a relic by item instance."""
@@ -870,29 +998,189 @@ class CombatScene:
         elif isinstance(relic, SunSwordItem):
             self._player_attack(SUN_SWORD_DMG, "sun sword")
 
+    def _apply_parry_and_harden(self, damage: int) -> tuple:
+        """Returns (final_damage, extra_msg) after parry/harden/curse checks."""
+        extra = ""
+        if getattr(self, '_parry_active', False):
+            self._parry_active = False
+            return 0, " The skeleton PARRIES your attack! No damage dealt!"
+        if getattr(self, '_hardened', False):
+            self._hardened = False
+            damage = max(1, damage // 2)
+            extra  = f" The golem was HARDENED — damage halved to {damage}!"
+        if getattr(self, '_cursed', False):
+            self._cursed = False
+            damage = damage * 2
+            extra  = f" The CURSE activates! Damage doubled to {damage}!"
+        return damage, extra
+
     def _update_player_action(self, dt):
         """Wait for lunge to reach midpoint, then deal damage."""
         self.action_timer += dt
         if self.action_timer >= self.ACTION_WAIT and not self.combat_goblin.flash_timer > 0:
             action, damage, weapon = self.pending_action
-            self.goblin_hp = max(0, self.goblin_hp - damage)
-            self.combat_goblin.start_flash()
-
+            # Apply parry / harden / curse
+            damage, extra_msg = self._apply_parry_and_harden(damage)
+            if damage > 0:
+                self.goblin_hp = max(0, self.goblin_hp - damage)
+                self.combat_goblin.start_flash()
             if weapon == "sun sword":
                 msg = f"The Sun Sword blazes! {damage} damage! ({self.goblin_hp}/{self.goblin_max_hp} HP)"
             else:
-                msg = f"You slash with your sword for {damage} damage! ({self.goblin_hp}/{self.goblin_max_hp} HP)"
-
+                msg = f"You slash for {damage} damage! ({self.goblin_hp}/{self.goblin_max_hp} HP)"
+            msg += extra_msg
             if self.goblin_hp <= 0:
                 self._goblin_loot = self._roll_loot()
-                self._show_message(msg + " The goblin is defeated!", STATE_VICTORY)
+                self._show_message(msg + f" The {self._goblin_name} is defeated!", STATE_VICTORY)
             else:
                 self._show_message(msg, STATE_ENEMY_ACTION)
 
+    def _trigger_ability(self):
+        """Trigger this enemy type's special ability. Returns message string."""
+        etype = self.enemy_type if self.enemy_type else "goblin"
+        mhp   = self.goblin_max_hp
+
+        if etype == "goblin":
+            from src.scenes.chest_scene import PotionItem
+            if self.inventory.has(PotionItem):
+                self.inventory.remove_one(PotionItem)
+                return "The goblin snatches a potion from your pack!"
+            return "The goblin rummages through your pack but finds nothing!"
+
+        elif etype == "skeleton":
+            self._parry_active = True
+            return "The skeleton raises its bones in a PARRY stance! Your next attack will be blocked!"
+
+        elif etype == "troll":
+            heal = min(3, mhp - self.goblin_hp)
+            self.goblin_hp = min(mhp, self.goblin_hp + 3)
+            return f"The troll regenerates! +3 HP ({self.goblin_hp}/{mhp})"
+
+        elif etype == "dark_mage":
+            self._cursed = True
+            return "The dark mage casts a CURSE! Your next hit will deal double damage... to you!"
+
+        elif etype == "imp":
+            self._burn_turns = 2
+            return "The imp sets you ABLAZE! You will burn for 2 damage each turn!"
+
+        elif etype == "dire_rat":
+            return "__DOUBLE_BITE__"   # handled specially in enemy action
+
+        elif etype == "orc_warrior":
+            self._rage_active  = True
+            self._goblin_dmg   = int(self._goblin_dmg_base * 1.6)
+            return f"The orc enters a RAGE! Damage increased to {self._goblin_dmg}!"
+
+        elif etype == "stone_golem":
+            self._hardened = True
+            return "The stone golem HARDENS! Your next attack will deal reduced damage!"
+
+        elif etype == "werewolf":
+            heal = min(8, mhp - self.goblin_hp)
+            if heal > 0:
+                self.goblin_hp += heal
+                return f"The werewolf HOWLS and regenerates! +{heal} HP ({self.goblin_hp}/{mhp})"
+            return "The werewolf howls but is already at full health!"
+
+        elif etype == "lich":
+            drain = min(6, self.player_hp - 1)
+            if drain > 0:
+                self.player_hp = max(1, self.player_hp - drain)
+                self.goblin_hp = min(mhp, self.goblin_hp + drain)
+                self.combat_player.start_flash()
+                return (f"The lich DRAINS your life force! -{drain} HP "
+                        f"({self.player_hp}/{self.player_max_hp}) "
+                        f"Lich heals to {self.goblin_hp}/{mhp}!")
+            return "The lich attempts to drain you but you resist!"
+
+        elif etype == "goblin_king":
+            return "The Goblin King roars with fury!"
+
+        # --- Boss abilities (every 3rd turn) ---
+        elif etype == "bone_lord":
+            # Resurrect once at low HP, otherwise curse
+            if self.goblin_hp <= self.goblin_max_hp // 3 and not getattr(self,'_resurrected',False):
+                self._resurrected = True
+                heal = self.goblin_max_hp // 2
+                self.goblin_hp = min(self.goblin_max_hp, self.goblin_hp + heal)
+                return f"The Bone Lord RISES AGAIN! Healed for {heal} HP ({self.goblin_hp}/{mhp})!"
+            self._cursed = True
+            return "The Bone Lord curses you — your next attack will be reflected!"
+
+        elif etype == "mountain_king":
+            # Regenerate 6 HP each ability turn
+            heal = min(6, mhp - self.goblin_hp)
+            self.goblin_hp = min(mhp, self.goblin_hp + 6)
+            return f"The Mountain King regenerates! +6 HP ({self.goblin_hp}/{mhp})"
+
+        elif etype == "archmage":
+            # Cycle through fire/ice/lightning — each one does different extra dmg
+            phase = (self._turn_count // self._ability_interval) % 3
+            spells = [
+                ("FIREBALL", 5, "The Archmage hurls a FIREBALL!"),
+                ("ICE LANCE", 4, "The Archmage conjures an ICE LANCE!"),
+                ("LIGHTNING", 6, "The Archmage calls down LIGHTNING!"),
+            ]
+            name, extra_dmg, msg = spells[phase]
+            self.player_hp = max(0, self.player_hp - extra_dmg)
+            self.combat_player.start_flash()
+            return f"{msg} -{extra_dmg} HP ({self.player_hp}/{self.player_max_hp})"
+
+        elif etype == "inferno_duke":
+            # Always burns, but boss version burns for 3 over 3 turns
+            self._burn_turns = 3
+            self._burn_dmg   = 3
+            return "The Inferno Duke engulfs you in HELLFIRE! Burning for 3 damage x 3 turns!"
+
+        elif etype == "rat_king":
+            # Double bite like dire rat, but also steals a potion
+            from src.scenes.chest_scene import PotionItem
+            stolen = ""
+            if self.inventory.has(PotionItem):
+                self.inventory.remove_one(PotionItem)
+                stolen = " His swarm steals your potion!"
+            return f"__DOUBLE_BITE__{stolen}"
+
+        elif etype == "warchief_grommak":
+            # Permanent rage that stacks
+            self._rage_active = True
+            self._goblin_dmg  = int(self._goblin_dmg * 1.4)
+            return f"Grommak unleashes WARCRY! Damage now {self._goblin_dmg}! (stacks!)"
+
+        elif etype == "ancient_colossus":
+            # Harden and heal
+            self._hardened = True
+            heal = min(8, mhp - self.goblin_hp)
+            self.goblin_hp = min(mhp, self.goblin_hp + heal)
+            return (f"The Ancient Colossus HARDENS and absorbs energy! "
+                    f"+{heal} HP ({self.goblin_hp}/{mhp}). Next attack halved!")
+
+        elif etype == "the_alpha":
+            # Howl heals + boosts damage
+            heal = min(10, mhp - self.goblin_hp)
+            self.goblin_hp = min(mhp, self.goblin_hp + heal)
+            self._goblin_dmg = int(self._goblin_dmg_base * 1.3)
+            return (f"The Alpha HOWLS! +{heal} HP ({self.goblin_hp}/{mhp}). "
+                    f"Damage increased to {self._goblin_dmg}!")
+
+        elif etype == "lich_king":
+            # Drain more and curse simultaneously
+            drain = min(8, self.player_hp - 1)
+            if drain > 0:
+                self.player_hp = max(1, self.player_hp - drain)
+                self.goblin_hp = min(mhp, self.goblin_hp + drain)
+                self.combat_player.start_flash()
+            self._cursed = True
+            return (f"The Lich King SOUL DRAINS you! -{drain} HP "
+                    f"({self.player_hp}/{self.player_max_hp}). And curses your next strike!")
+
+        return ""
+
     def _update_enemy_action(self, dt):
-        """Goblin attacks — lunge then deal damage."""
+        """Enemy acts — normal attack, ability, or burn tick."""
         self.action_timer += dt
-        if self.action_timer == 0.0 or not hasattr(self, '_goblin_attacked'):
+        if not hasattr(self, '_goblin_attacked'):
             self._goblin_attacked = False
 
         if self.action_timer >= 0.3 and not self._goblin_attacked:
@@ -902,28 +1190,65 @@ class CombatScene:
         if self.action_timer >= 0.3 + self.ACTION_WAIT and not self.combat_player.flash_timer > 0:
             if not self._goblin_attacked:
                 return
+            self._goblin_attacked = False
+            self.action_timer     = -9999
+            self._turn_count     += 1
+
+            # --- Burn tick (imp) ---
+            burn_msg = ""
+            if self._burn_turns > 0:
+                self.player_hp    = max(0, self.player_hp - self._burn_dmg)
+                self._burn_turns -= 1
+                self.combat_player.start_flash()
+                burn_msg = f" You burn for {self._burn_dmg} damage!"
+                if self.player_hp <= 0:
+                    self._show_message(
+                        f"The flames consume you!{burn_msg} You have fallen...",
+                        STATE_DEFEAT)
+                    return
+
+            # --- Ability turn (every 3rd turn) ---
+            if self._turn_count % self._ability_interval == 0:
+                ability_msg = self._trigger_ability()
+                if ability_msg == "__DOUBLE_BITE__":
+                    defence = self.armour.total_defence() if self.armour else 0
+                    dmg1 = max(1, self._goblin_dmg - defence)
+                    dmg2 = max(1, self._goblin_dmg - defence)
+                    self.player_hp = max(0, self.player_hp - dmg1 - dmg2)
+                    self.combat_player.start_flash()
+                    msg = (f"The dire rat BITES TWICE for {dmg1}+{dmg2} damage! "
+                           f"({self.player_hp}/{self.player_max_hp} HP){burn_msg}")
+                    if self.player_hp <= 0:
+                        self._show_message(msg + " You have fallen in battle...", STATE_DEFEAT)
+                    else:
+                        self._show_message(msg, STATE_PLAYER_CHOOSE)
+                    return
+                # Lich drain already applied inside _trigger_ability
+                if self.player_hp <= 0:
+                    self._show_message(ability_msg + " You have fallen...", STATE_DEFEAT)
+                    return
+                self._show_message(ability_msg + burn_msg, STATE_PLAYER_CHOOSE)
+                return
+
+            # --- Normal attack ---
             if getattr(self, '_shield_active', False):
                 self._shield_active = False
-                self._goblin_attacked = False
-                self.action_timer = -9999
                 self._show_message(
-                    "The goblin strikes — BLOCKED by your shield! "
-                    "The shield holds firm.",
+                    f"The {self._goblin_name} strikes — BLOCKED by your shield! "
+                    f"The shield holds firm.{burn_msg}",
                     STATE_PLAYER_CHOOSE)
                 return
+
             defence = self.armour.total_defence() if self.armour else 0
-            dmg = max(1, self._goblin_dmg - defence)
+            dmg     = max(1, self._goblin_dmg - defence)
             self.player_hp = max(0, self.player_hp - dmg)
             self.combat_player.start_flash()
-            self._goblin_attacked = False   # reset for next round
-
-            msg = f"The goblin clubs you for {dmg} damage! ({self.player_hp}/{PLAYER_MAX_HP} HP)"
+            msg = (f"The {self._goblin_name} hits you for {dmg} damage! "
+                   f"({self.player_hp}/{self.player_max_hp} HP){burn_msg}")
             if self.player_hp <= 0:
                 self._show_message(msg + " You have fallen in battle...", STATE_DEFEAT)
             else:
                 self._show_message(msg, STATE_PLAYER_CHOOSE)
-            # Reset timer so this block doesn't fire again
-            self.action_timer = -9999
 
     # ------------------------------------------------------------------ #
     # Main loop
