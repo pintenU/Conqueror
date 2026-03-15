@@ -1,0 +1,31 @@
+{
+  "playtime_seconds": 228.80099821090698,
+  "enemies_defeated": 0,
+  "quests_cleared": 0,
+  "gold_collected": 0,
+  "chests_opened": 0,
+  "dungeon_cleared": true,
+  "current_location": "town",
+  "inventory_data": [
+    {
+      "type": "SwordItem",
+      "kwargs": {},
+      "stack_count": 1
+    },
+    {
+      "type": "PotionItem",
+      "kwargs": {},
+      "stack_count": 1
+    }
+  ],
+  "door_states": [],
+  "chest_states": [],
+  "armour_data": {
+    "helmet": null,
+    "chestplate": null,
+    "leggings": null,
+    "boots": null
+  },
+  "save_time": "2026-03-15  15:41",
+  "slot": 0
+}

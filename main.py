@@ -54,6 +54,7 @@ def main():
     armour          = ArmourSystem()
     game_scene      = None
     pre_inv_scene   = "game"   # scene before inventory was opened
+    town_idx        = 0           # which area we were at in town
     combat          = None
     dungeon_cleared = False
     prev_scene      = "menu"
@@ -299,9 +300,11 @@ def main():
             capture(game_state, inventory, game_scene, dungeon_cleared, "town", armour)
             save_slot(0, game_state)
             prev_scene = "town"
-            result     = TownScene(screen, inventory, "Ashenvale").run()
+            raw        = TownScene(screen, inventory, "Ashenvale", start_idx=town_idx).run()
+            result, town_idx = raw if isinstance(raw, tuple) else (raw, 0)
 
             if result == "start":
+                # Remember we were at dungeon entrance (last area)
                 game_scene = _make_game_scene(screen, inventory, dungeon_cleared)
                 prev_scene = "game"
                 r2 = game_scene.run()
