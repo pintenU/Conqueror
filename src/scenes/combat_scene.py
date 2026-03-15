@@ -272,6 +272,7 @@ STATE_ENEMY_ACTION   = "enemy_action"    # goblin attacking
 STATE_MESSAGE        = "message"         # showing a message, click to continue
 STATE_VICTORY        = "victory"
 STATE_DEFEAT         = "defeat"
+STATE_RELIC_MENU     = "relic_menu"
 
 PLAYER_MAX_HP  = 30
 GOBLIN_MAX_HP  = 12
@@ -282,7 +283,8 @@ POTION_HEAL    = 5
 
 
 class CombatScene:
-    def __init__(self, screen):
+    def __init__(self, screen, inventory):
+        self.inventory = inventory
         self.screen = screen
         self.W, self.H = screen.get_size()
         self.clock = pygame.time.Clock()
@@ -308,8 +310,6 @@ class CombatScene:
         # Stats
         self.player_hp  = PLAYER_MAX_HP
         self.goblin_hp  = GOBLIN_MAX_HP
-        self.potion_count = 1        # one potion in inventory
-        self.has_sun_sword = True    # relic equipped
 
         # State machine
         self.state          = STATE_MESSAGE
@@ -336,6 +336,11 @@ class CombatScene:
             ActionButton(rx, by_, bw, bh, "RUN",    (80,  180, 80)),
         ]
         self._set_buttons_enabled(False)
+
+        # Relic selection menu
+        self._relic_selection    = False
+        self._relic_options      = []
+        self._relic_selected_idx = 0
 
         self.bg = self._build_background()
 
@@ -429,6 +434,74 @@ class CombatScene:
             pygame.draw.rect(surface, bar_col, (x,y,fw,h))
             pygame.draw.rect(surface, tuple(min(255,c+60) for c in bar_col),
                              (x,y,fw,h//3))
+
+    def _draw_relic_menu(self, surface):
+        """Overlay panel listing owned relics to choose from."""
+        items  = self._relic_options
+        if not items:
+            return
+
+        rows   = len(items)
+        pw     = int(self.W * 0.36)
+        row_h  = 58
+        pad    = 20
+        ph     = rows * row_h + pad * 2 + 50
+        px     = int(self.W * 0.52) + (int(self.W * 0.48) - pw) // 2
+        py     = self.BATTLE_H + (self.PANEL_H - ph) // 2
+
+        # Panel
+        bg = pygame.Surface((pw, ph), pygame.SRCALPHA)
+        bg.fill((14, 10, 7, 245))
+        surface.blit(bg, (px, py))
+        pygame.draw.rect(surface, (105, 82, 50), (px, py, pw, ph), 2)
+        pygame.draw.rect(surface, (62, 48, 28), (px+4, py+4, pw-8, ph-8), 1)
+
+        # Corner ticks
+        c2 = (145, 112, 64)
+        for bpx, bpy, dx, dy in [(px,py,1,1),(px+pw,py,-1,1),
+                                  (px,py+ph,1,-1),(px+pw,py+ph,-1,-1)]:
+            pygame.draw.line(surface,c2,(bpx,bpy),(bpx+dx*10,bpy),2)
+            pygame.draw.line(surface,c2,(bpx,bpy),(bpx,bpy+dy*10),2)
+
+        # Title
+        title = self.font_medium.render("CHOOSE RELIC", True, (215,180,105))
+        surface.blit(title, (px + pw//2 - title.get_width()//2, py + 10))
+        pygame.draw.line(surface, (80,62,36),
+                         (px+16, py+10+title.get_height()+4),
+                         (px+pw-16, py+10+title.get_height()+4), 1)
+
+        # Relic rows
+        for i, item in enumerate(items):
+            ry      = py + pad + 38 + i * row_h
+            is_sel  = (i == self._relic_selected_idx)
+
+            row_bg = pygame.Surface((pw - pad*2, row_h - 6), pygame.SRCALPHA)
+            row_bg.fill((38,28,16,220) if is_sel else (20,14,8,160))
+            surface.blit(row_bg, (px+pad, ry))
+
+            border_col = (160,128,68) if is_sel else (55,42,26)
+            pygame.draw.rect(surface, border_col,
+                             (px+pad, ry, pw-pad*2, row_h-6), 2)
+
+            if is_sel:
+                arr = self.font_small.render("▶", True, (200,165,80))
+                surface.blit(arr, (px+pad+4, ry + row_h//2 - arr.get_height()//2 - 3))
+
+            # Icon
+            item.draw_icon(surface, px+pad+28, ry+row_h//2-3, 30)
+
+            # Name + desc
+            nc = (225,195,130) if is_sel else (170,145,95)
+            ns = self.font_medium.render(item.name, True, nc)
+            surface.blit(ns, (px+pad+48, ry+6))
+            ds = self.font_small.render(item.description, True, (130,108,68))
+            surface.blit(ds, (px+pad+48, ry+6+ns.get_height()+2))
+
+        # Hint
+        hint = self.font_small.render(
+            "↑↓ select   ENTER use   ESC cancel", True, (70,56,34))
+        surface.blit(hint, (px + pw//2 - hint.get_width()//2,
+                            py + ph - hint.get_height() - 8))
 
     def _draw_message_box(self, surface):
         mx  = int(self.W * 0.02)
@@ -541,28 +614,52 @@ class CombatScene:
                     self._player_attack(SWORD_DAMAGE, "sword")
 
                 elif btn.text == "ITEMS":
-                    if self.potion_count > 0:
-                        self.potion_count -= 1
+                    from src.scenes.chest_scene import PotionItem
+                    potion = next((it for it in self.inventory.items
+                                   if isinstance(it, PotionItem)), None)
+                    if potion:
+                        self.inventory.remove(potion)
                         heal = min(POTION_HEAL, PLAYER_MAX_HP - self.player_hp)
                         self.player_hp += heal
+                        remaining = self.inventory.count(PotionItem)
                         self._show_message(
                             f"You drink a potion and heal {heal} HP! "
-                            f"({self.player_hp}/{PLAYER_MAX_HP})",
+                            f"({self.player_hp}/{PLAYER_MAX_HP})  "
+                            f"Potions left: {remaining}",
                             STATE_ENEMY_ACTION)
                     else:
                         self._show_message(
-                            "Your satchel is empty!", STATE_PLAYER_CHOOSE)
+                            "You have no potions!", STATE_PLAYER_CHOOSE)
 
                 elif btn.text == "RELICS":
-                    if self.has_sun_sword:
-                        self._player_attack(SUN_SWORD_DMG, "sun sword")
-                    else:
+                    from src.scenes.chest_scene import ShieldItem, SunSwordItem
+                    relics = [it for it in self.inventory.items
+                              if isinstance(it, (ShieldItem, SunSwordItem))]
+                    if not relics:
                         self._show_message(
-                            "You have no relics equipped!", STATE_PLAYER_CHOOSE)
+                            "You have no relics!", STATE_PLAYER_CHOOSE)
+                    elif len(relics) == 1:
+                        self._use_relic(relics[0])
+                    else:
+                        self._relic_options      = relics
+                        self._relic_selected_idx = 0
+                        self.state               = STATE_RELIC_MENU
+                        self._set_buttons_enabled(False)
 
                 elif btn.text == "RUN":
                     self._show_message(
                         "You flee into the darkness!", "game")
+
+    def _use_relic(self, relic):
+        """Activate a relic by item instance."""
+        from src.scenes.chest_scene import ShieldItem, SunSwordItem
+        if isinstance(relic, ShieldItem):
+            self._shield_active = True
+            self._show_message(
+                "You raise the Iron Shield! The next hit will be blocked!",
+                STATE_ENEMY_ACTION)
+        elif isinstance(relic, SunSwordItem):
+            self._player_attack(SUN_SWORD_DMG, "sun sword")
 
     def _update_player_action(self, dt):
         """Wait for lunge to reach midpoint, then deal damage."""
@@ -594,6 +691,15 @@ class CombatScene:
 
         if self.action_timer >= 0.3 + self.ACTION_WAIT and not self.combat_player.flash_timer > 0:
             if not self._goblin_attacked:
+                return
+            if getattr(self, '_shield_active', False):
+                self._shield_active = False
+                self._goblin_attacked = False
+                self.action_timer = -9999
+                self._show_message(
+                    "The goblin strikes — BLOCKED by your shield! "
+                    "The shield holds firm.",
+                    STATE_PLAYER_CHOOSE)
                 return
             dmg = GOBLIN_DAMAGE
             self.player_hp = max(0, self.player_hp - dmg)
@@ -651,6 +757,23 @@ class CombatScene:
                     elif self.state == STATE_PLAYER_CHOOSE:
                         self._handle_player_choose(event)
 
+                    elif self.state == STATE_RELIC_MENU:
+                        if event.type == pygame.KEYDOWN:
+                            if event.key == pygame.K_UP:
+                                self._relic_selected_idx = max(
+                                    0, self._relic_selected_idx - 1)
+                            elif event.key == pygame.K_DOWN:
+                                self._relic_selected_idx = min(
+                                    len(self._relic_options)-1,
+                                    self._relic_selected_idx + 1)
+                            elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                                chosen = self._relic_options[self._relic_selected_idx]
+                                self.state = STATE_PLAYER_CHOOSE
+                                self._use_relic(chosen)
+                            elif event.key == pygame.K_ESCAPE:
+                                self.state = STATE_PLAYER_CHOOSE
+                                self._set_buttons_enabled(True)
+
             # ---- Update ----
             self.combat_player.update(dt)
             self.combat_goblin.update(dt)
@@ -686,16 +809,28 @@ class CombatScene:
                 for btn in self.buttons:
                     btn.draw(self.screen, self.font_medium)
                 # Draw item/relic counts next to buttons
+                from src.scenes.chest_scene import PotionItem, SunSwordItem, ShieldItem
+                pot_count = self.inventory.count(PotionItem)
                 pot_s = self.font_small.render(
-                    f"x{self.potion_count}", True,
-                    (120,180,210) if self.potion_count>0 else (60,50,40))
+                    f"x{pot_count}", True,
+                    (120,180,210) if pot_count>0 else (60,50,40))
                 self.screen.blit(pot_s,
                     (self.buttons[1].rect.right - pot_s.get_width() - 6,
                      self.buttons[1].rect.y + 4))
 
-                rel_label = "equipped" if self.has_sun_sword else "none"
-                rel_s = self.font_small.render(rel_label, True,
-                    (190,160,90) if self.has_sun_sword else (60,50,40))
+                from src.scenes.chest_scene import SunSwordItem, ShieldItem
+                # ATTACK always shows iron sword
+                atk_s = self.font_small.render("iron sword", True, (140,140,160))
+                self.screen.blit(atk_s,
+                    (self.buttons[0].rect.x + 6,
+                     self.buttons[0].rect.bottom - atk_s.get_height() - 4))
+
+                # RELICS shows count of owned relics
+                relic_count = sum(1 for it in self.inventory.items
+                                  if isinstance(it, (SunSwordItem, ShieldItem)))
+                rel_label = f"{relic_count} relic{'s' if relic_count!=1 else ''}"                             if relic_count > 0 else "no relics"
+                rel_col = (190,160,90) if relic_count > 0 else (60,50,40)
+                rel_s = self.font_small.render(rel_label, True, rel_col)
                 self.screen.blit(rel_s,
                     (self.buttons[2].rect.x + 6,
                      self.buttons[2].rect.bottom - rel_s.get_height() - 4))
@@ -704,6 +839,10 @@ class CombatScene:
                 dim = pygame.Surface((int(self.W*0.48), self.PANEL_H), pygame.SRCALPHA)
                 dim.fill((0,0,0,120))
                 self.screen.blit(dim,(int(self.W*0.50), self.BATTLE_H))
+
+            # Relic selection menu overlay
+            if self.state == STATE_RELIC_MENU:
+                self._draw_relic_menu(self.screen)
 
             # Sun sword icon shown during relic use
             if (self.state in (STATE_MESSAGE, STATE_PLAYER_ACTION)

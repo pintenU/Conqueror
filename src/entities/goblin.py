@@ -141,11 +141,17 @@ class Goblin(pygame.sprite.Sprite):
         self.patrol_index = next_idx
 
     def _start_next_move(self):
-        """Kick off movement toward the next waypoint."""
+        """Kick off movement toward the next waypoint, skipping player tile."""
         self._next_waypoint()
         tc, tr = self.patrol_tiles[self.patrol_index]
-        old_col = self.tile_col
 
+        # If next waypoint is the player's tile, pause instead
+        if (tc == getattr(self, "_player_col", -1) and
+                tr == getattr(self, "_player_row", -1)):
+            self.move_cooldown = self.PAUSE_TIME
+            return
+
+        old_col = self.tile_col
         self.tile_col  = tc
         self.tile_row  = tr
         self.target_px = float(tc * self.tile_size)
@@ -162,7 +168,9 @@ class Goblin(pygame.sprite.Sprite):
     # ------------------------------------------------------------------ #
     #  Update
     # ------------------------------------------------------------------ #
-    def update(self, dt: float):
+    def update(self, dt: float, player_col: int = -1, player_row: int = -1):
+        self._player_col = player_col
+        self._player_row = player_row
         self.anim_time += dt
 
         if self.moving:
