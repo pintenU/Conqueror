@@ -30,6 +30,8 @@ class GameState:
         self.chests_opened     = 0
 
         # Progress
+        self.player_hp         = 30    # persists between combats
+        self.player_max_hp     = 30
         self.dungeon_cleared   = False
         self.current_location  = "dungeon"   # "dungeon" or "town"
 
@@ -42,6 +44,7 @@ class GameState:
         # Chest states — list of {"opened": bool, "items": [...]}
         self.chest_states      = []
         self.armour_data       = {}  # slot -> class name
+        self.stats_data        = {}  # player stats dict
 
         # Timestamp
         self.save_time         = ""
@@ -58,12 +61,15 @@ class GameState:
             "quests_cleared":   self.quests_cleared,
             "gold_collected":   self.gold_collected,
             "chests_opened":    self.chests_opened,
+            "player_hp":        self.player_hp,
+            "player_max_hp":    self.player_max_hp,
             "dungeon_cleared":  self.dungeon_cleared,
             "current_location": self.current_location,
             "inventory_data":   self.inventory_data,
             "door_states":      self.door_states,
             "chest_states":     self.chest_states,
             "armour_data":      self.armour_data,
+            "stats_data":       self.stats_data,
             "save_time":        self.save_time,
             "slot":             self.slot,
         }
@@ -76,6 +82,8 @@ class GameState:
         gs.quests_cleared   = d.get("quests_cleared",   0)
         gs.gold_collected   = d.get("gold_collected",   0)
         gs.chests_opened    = d.get("chests_opened",    0)
+        gs.player_hp        = d.get("player_hp",        30)
+        gs.player_max_hp    = d.get("player_max_hp",    30)
         gs.dungeon_cleared  = d.get("dungeon_cleared",  False)
         gs.current_location = d.get("current_location", "dungeon")
         gs.inventory_data   = d.get("inventory_data",   [])
@@ -144,7 +152,7 @@ def _dict_to_item(d: dict):
 
 def capture(state: GameState, inventory, game_scene=None,
             dungeon_cleared=False, current_location="dungeon",
-            armour=None):
+            armour=None, player_stats=None):
     """Snapshot current game into a GameState."""
     state.dungeon_cleared  = dungeon_cleared
     state.current_location = current_location
@@ -163,6 +171,8 @@ def capture(state: GameState, inventory, game_scene=None,
     # Door and chest states from game_scene
     if armour:
         state.armour_data = armour.to_dict()
+    if player_stats:
+        state.stats_data = player_stats.to_dict()
 
     if game_scene:
         state.door_states  = [d.locked for d in game_scene.locked_doors]
@@ -173,7 +183,7 @@ def capture(state: GameState, inventory, game_scene=None,
         ]
 
 
-def restore(state: GameState, inventory, armour=None):
+def restore(state: GameState, inventory, armour=None, player_stats=None):
     """Restore inventory from a GameState."""
     # Clear current inventory
     inventory._stacks = {}
@@ -182,6 +192,8 @@ def restore(state: GameState, inventory, armour=None):
 
     if armour and state.armour_data:
         armour.from_dict(state.armour_data)
+    if player_stats and state.stats_data:
+        player_stats.from_dict(state.stats_data)
 
     for d in state.inventory_data:
         item = _dict_to_item(d)

@@ -1,11 +1,13 @@
 {
-  "playtime_seconds": 228.80099821090698,
-  "enemies_defeated": 0,
+  "playtime_seconds": 752.9272141456604,
+  "enemies_defeated": 4,
   "quests_cleared": 0,
-  "gold_collected": 0,
+  "gold_collected": 18,
   "chests_opened": 0,
+  "player_hp": 26,
+  "player_max_hp": 30,
   "dungeon_cleared": true,
-  "current_location": "town",
+  "current_location": "dungeon",
   "inventory_data": [
     {
       "type": "SwordItem",
@@ -15,17 +17,209 @@
     {
       "type": "PotionItem",
       "kwargs": {},
+      "stack_count": 7
+    },
+    {
+      "type": "GoldItem",
+      "kwargs": {
+        "amount": 18
+      },
+      "stack_count": 18
+    },
+    {
+      "type": "CandleItem",
+      "kwargs": {},
+      "stack_count": 1
+    },
+    {
+      "type": "KeyItem",
+      "kwargs": {
+        "key_id": "key_r1r2"
+      },
+      "stack_count": 1
+    },
+    {
+      "type": "KeyItem",
+      "kwargs": {
+        "key_id": "key_r1r2"
+      },
       "stack_count": 1
     }
   ],
-  "door_states": [],
-  "chest_states": [],
+  "door_states": [
+    true,
+    true,
+    true
+  ],
+  "chest_states": [
+    {
+      "opened": true,
+      "items": []
+    },
+    {
+      "opened": false,
+      "items": [
+        {
+          "type": "PotionItem",
+          "kwargs": {},
+          "stack_count": 1
+        },
+        {
+          "type": "GoldItem",
+          "kwargs": {
+            "amount": 5
+          },
+          "stack_count": 1
+        },
+        {
+          "type": "PotionItem",
+          "kwargs": {},
+          "stack_count": 1
+        }
+      ]
+    },
+    {
+      "opened": false,
+      "items": [
+        {
+          "type": "KeyItem",
+          "kwargs": {
+            "key_id": "key_r2r3"
+          },
+          "stack_count": 1
+        },
+        {
+          "type": "PotionItem",
+          "kwargs": {},
+          "stack_count": 1
+        },
+        {
+          "type": "CandleItem",
+          "kwargs": {},
+          "stack_count": 1
+        }
+      ]
+    },
+    {
+      "opened": false,
+      "items": [
+        {
+          "type": "GoldItem",
+          "kwargs": {
+            "amount": 10
+          },
+          "stack_count": 1
+        },
+        {
+          "type": "CandleItem",
+          "kwargs": {},
+          "stack_count": 1
+        },
+        {
+          "type": "CandleItem",
+          "kwargs": {},
+          "stack_count": 1
+        }
+      ]
+    },
+    {
+      "opened": false,
+      "items": [
+        {
+          "type": "KeyItem",
+          "kwargs": {
+            "key_id": "key_r3f"
+          },
+          "stack_count": 1
+        },
+        {
+          "type": "PotionItem",
+          "kwargs": {},
+          "stack_count": 1
+        },
+        {
+          "type": "CandleItem",
+          "kwargs": {},
+          "stack_count": 1
+        }
+      ]
+    },
+    {
+      "opened": false,
+      "items": [
+        {
+          "type": "PotionItem",
+          "kwargs": {},
+          "stack_count": 1
+        },
+        {
+          "type": "CandleItem",
+          "kwargs": {},
+          "stack_count": 1
+        },
+        {
+          "type": "PotionItem",
+          "kwargs": {},
+          "stack_count": 1
+        }
+      ]
+    },
+    {
+      "opened": false,
+      "items": [
+        {
+          "type": "GoldItem",
+          "kwargs": {
+            "amount": 15
+          },
+          "stack_count": 1
+        },
+        {
+          "type": "GoldItem",
+          "kwargs": {
+            "amount": 5
+          },
+          "stack_count": 1
+        },
+        {
+          "type": "CandleItem",
+          "kwargs": {},
+          "stack_count": 1
+        }
+      ]
+    },
+    {
+      "opened": false,
+      "items": [
+        {
+          "type": "ShieldItem",
+          "kwargs": {},
+          "stack_count": 1
+        },
+        {
+          "type": "GoldItem",
+          "kwargs": {
+            "amount": 30
+          },
+          "stack_count": 1
+        }
+      ]
+    }
+  ],
   "armour_data": {
     "helmet": null,
     "chestplate": null,
     "leggings": null,
     "boots": null
   },
-  "save_time": "2026-03-15  15:41",
+  "stats_data": {
+    "level": 1,
+    "exp": 15,
+    "stat_points": 0,
+    "dexterity": 0,
+    "strength": 0,
+    "magic_mastery": 0
+  },
+  "save_time": "2026-03-15  16:19",
   "slot": 0
 }

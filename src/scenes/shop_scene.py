@@ -553,42 +553,339 @@ class ShopScene:
 # Individual shop subclasses
 # ===========================================================================
 
-class InnScene(ShopScene):
-    def _setup(self):
-        from src.scenes.chest_scene import PotionItem
-        self.shop_name    = "The Rusty Flagon"
+class InnScene:
+    """
+    Standalone inn scene — not a ShopScene.
+    Two rest options: partial and full, plus potion buying.
+    Tracks and modifies player HP via game_state.
+    """
+
+    PARTIAL_COST = 7
+    PARTIAL_HEAL = 15
+    FULL_COST    = 15
+    POTION_COST  = 6
+
+    def __init__(self, screen, inventory, game_state=None):
+        self.screen     = screen
+        self.W, self.H  = screen.get_size()
+        self.clock      = pygame.time.Clock()
+        self.time       = 0.0
+        self.inventory  = inventory
+        self.game_state = game_state
+
+        self.font_title  = pygame.font.SysFont("courier new", 28, bold=True)
+        self.font_medium = pygame.font.SysFont("courier new", 18, bold=True)
+        self.font_small  = pygame.font.SysFont("courier new", 14)
+        self.font_tiny   = pygame.font.SysFont("courier new", 12)
+
+        self._message       = ""
+        self._message_timer = 0.0
+        self._msg_good      = True
+        self.open_anim      = 0.0
+        self.OPEN_DUR       = 0.4
+        self.selected       = 0   # 0=partial, 1=full, 2=potion, 3=leave
+
+        # Colours
         self.shop_color   = (140, 95, 45)
         self.keeper_color = (190, 155, 100)
-        self.flavor_text  = "Rest up, friend."
-        self.sell_enabled = False
-        self.shop_items   = [
-            ShopItem(PotionItem,  6, -1, "Restores 5 HP in combat."),
-            ShopItem(PotionItem, 10, -1, "Buy 2 potions at once."),   # placeholder
-        ]
-        # Rest option — heals to full for gold
-        self._rest_cost = 15
+
+    # ------------------------------------------------------------------ #
+
+    def _gold(self):
+        from src.scenes.chest_scene import GoldItem
+        return sum(self.inventory.stack_count(it)
+                   for it in self.inventory.items
+                   if isinstance(it, GoldItem))
+
+    def _spend_gold(self, amount):
+        from src.scenes.chest_scene import GoldItem
+        gold_item = next((it for it in self.inventory.items
+                          if isinstance(it, GoldItem)), None)
+        if gold_item is None: return False
+        total = self.inventory.stack_count(gold_item)
+        if total < amount: return False
+        remaining = total - amount
+        self.inventory.remove(gold_item)
+        if remaining > 0:
+            self.inventory.add(GoldItem(remaining))
+        return True
+
+    def _player_hp(self):
+        if self.game_state: return self.game_state.player_hp
+        from src.scenes.combat_scene import PLAYER_MAX_HP
+        return PLAYER_MAX_HP
+
+    def _player_max_hp(self):
+        if self.game_state: return self.game_state.player_max_hp
+        from src.scenes.combat_scene import PLAYER_MAX_HP
+        return PLAYER_MAX_HP
+
+    def _set_hp(self, hp):
+        if self.game_state:
+            self.game_state.player_hp = min(hp, self._player_max_hp())
+
+    # ------------------------------------------------------------------ #
 
     def _draw_background(self):
         for y in range(self.H):
             t2 = y/self.H
             r  = int(25+15*t2); g2 = int(16+10*t2); b = int(8+5*t2)
             pygame.draw.line(self.screen,(r,g2,b),(0,y),(self.W,y))
-        # Fireplace glow
-        pulse = 0.6+0.4*math.sin(self.time*2)
-        glow  = pygame.Surface((self.W,self.H),pygame.SRCALPHA)
-        pygame.draw.ellipse(glow,(160,80,20,int(35*pulse)),
-                            (self.W//2-200,self.H-200,400,300))
-        self.screen.blit(glow,(0,0))
+        # Fireplace glow bottom centre
+        pulse = 0.6+0.4*math.sin(self.time*2.0)
+        gs = pygame.Surface((400,300))
+        gs.fill((25,16,8))
+        pygame.draw.ellipse(gs,(int(160*pulse),int(80*pulse),int(20*pulse)),
+                            (0,0,400,300))
+        gs.set_colorkey((25,16,8))
+        self.screen.blit(gs,(self.W//2-200,self.H-250))
 
-    def _draw_keeper_area(self, x, y, w, t):
-        if t < 0.8: return
-        kx = x+w-90; ky = y+45
-        self._draw_keeper(kx, ky, self.keeper_color)
-        pygame.draw.rect(self.screen,(100,70,35),(kx+18,ky+10,16,18))
-        pygame.draw.arc(self.screen,(80,55,25),(kx+30,ky+12,10,12),
+    def _draw_panel(self, t):
+        pw = int(self.W * 0.68)
+        ph = int(self.H * 0.80)
+        px = self.W//2 - pw//2
+        py = self.H//2 - ph//2
+        ease = 1-(1-t)**3
+        w = int(pw*ease); h = int(ph*ease)
+        x = self.W//2 - w//2; y = self.H//2 - h//2
+        if w < 4: return px,py,pw,ph
+
+        sh = pygame.Surface((w+14,h+14),pygame.SRCALPHA)
+        sh.fill((0,0,0,90))
+        self.screen.blit(sh,(x-7,y-7))
+        panel = pygame.Surface((w,h),pygame.SRCALPHA)
+        panel.fill((16,12,8,248))
+        self.screen.blit(panel,(x,y))
+        pygame.draw.rect(self.screen,self.shop_color,(x,y,w,h),2)
+        pygame.draw.rect(self.screen,tuple(max(0,c-40) for c in self.shop_color),
+                         (x+5,y+5,w-10,h-10),1)
+        sz = 14; c2 = tuple(min(255,c+30) for c in self.shop_color)
+        for bx,by,dx,dy in [(x,y,1,1),(x+w,y,-1,1),(x,y+h,1,-1),(x+w,y+h,-1,-1)]:
+            pygame.draw.line(self.screen,c2,(bx,by),(bx+dx*sz,by),2)
+            pygame.draw.line(self.screen,c2,(bx,by),(bx,by+dy*sz),2)
+        if t > 0.8:
+            title = self.font_title.render("The Rusty Flagon",True,(215,180,105))
+            self.screen.blit(title,(self.W//2-title.get_width()//2,y+12))
+            pygame.draw.line(self.screen,self.shop_color,
+                             (x+20,y+12+title.get_height()+4),
+                             (x+w-20,y+12+title.get_height()+4),1)
+            gold_s = self.font_medium.render(f"Gold: {self._gold()}",True,(220,185,60))
+            self.screen.blit(gold_s,(x+w-gold_s.get_width()-16,y+12))
+        return px,py,pw,ph
+
+    def _draw_keeper(self, cx, cy):
+        c = self.keeper_color
+        dark = tuple(max(0,v-40) for v in c)
+        pygame.draw.ellipse(self.screen,c,(cx-30,cy-20,60,80))
+        pygame.draw.ellipse(self.screen,dark,(cx-30,cy-20,60,80),2)
+        pygame.draw.circle(self.screen,c,(cx,cy-35),28)
+        pygame.draw.circle(self.screen,dark,(cx,cy-35),28,2)
+        pygame.draw.circle(self.screen,(40,30,15),(cx-9,cy-38),5)
+        pygame.draw.circle(self.screen,(40,30,15),(cx+9,cy-38),5)
+        pygame.draw.circle(self.screen,(220,200,160),(cx-9,cy-38),2)
+        pygame.draw.circle(self.screen,(220,200,160),(cx+9,cy-38),2)
+        pygame.draw.arc(self.screen,dark,(cx-10,cy-32,20,12),math.pi,2*math.pi,2)
+        # Mug
+        pygame.draw.rect(self.screen,(100,70,35),(cx+18,cy+10,16,18))
+        pygame.draw.arc(self.screen,(80,55,25),(cx+30,cy+12,10,12),
                         -math.pi/2,math.pi/2,3)
-        fs = self.font_tiny.render(f'"{self.flavor_text}"',True,(160,135,85))
-        self.screen.blit(fs,(kx-fs.get_width()//2,ky+65))
+        # Speech bubble
+        quote = self.font_tiny.render('"Rest your bones, traveller."',
+                                       True,(160,135,85))
+        self.screen.blit(quote,(cx-quote.get_width()//2,cy+65))
+
+    def _draw_hp_bar(self, x, y, w):
+        hp  = self._player_hp()
+        mhp = self._player_max_hp()
+        # Label
+        lab = self.font_small.render(f"HP:  {hp} / {mhp}",True,(200,165,90))
+        self.screen.blit(lab,(x,y))
+        # Bar background
+        bw = w-lab.get_width()-16; bx = x+lab.get_width()+16; by = y+3
+        bh = 14
+        pygame.draw.rect(self.screen,(35,22,14),(bx,by,bw,bh))
+        pygame.draw.rect(self.screen,(65,42,24),(bx,by,bw,bh),1)
+        # Fill
+        fill = max(0,int(bw*(hp/mhp)))
+        if fill > 0:
+            col = (60,180,60) if hp/mhp>0.5 else (200,160,40) if hp/mhp>0.25 else (200,50,40)
+            pygame.draw.rect(self.screen,col,(bx,by,fill,bh))
+
+    def _draw_options(self, x, y, w, h, t):
+        if t < 0.8: return
+        hp  = self._player_hp()
+        mhp = self._player_max_hp()
+        gold = self._gold()
+
+        options = [
+            {
+                "label":   "Light Rest",
+                "detail":  f"Restore {self.PARTIAL_HEAL} HP",
+                "cost":    self.PARTIAL_COST,
+                "afford":  gold >= self.PARTIAL_COST,
+                "useful":  hp < mhp,
+                "icon_col":(80,160,120),
+            },
+            {
+                "label":   "Full Rest",
+                "detail":  "Restore all HP",
+                "cost":    self.FULL_COST,
+                "afford":  gold >= self.FULL_COST,
+                "useful":  hp < mhp,
+                "icon_col":(60,140,200),
+            },
+            {
+                "label":   "Buy Potion",
+                "detail":  "Restores 5 HP in combat",
+                "cost":    self.POTION_COST,
+                "afford":  gold >= self.POTION_COST,
+                "useful":  True,
+                "icon_col":(180,60,60),
+            },
+            {
+                "label":   "Leave",
+                "detail":  "Head back outside",
+                "cost":    0,
+                "afford":  True,
+                "useful":  True,
+                "icon_col":(120,95,55),
+            },
+        ]
+
+        row_h = 58; row_w = int(w*0.60)
+        rx    = x + (w-row_w)//2 - 40
+        start_y = y + 65
+
+        for i, opt in enumerate(options):
+            ry     = start_y + i*row_h
+            is_sel = (i == self.selected)
+            tv     = 1.0 if is_sel else 0.0
+
+            bg = pygame.Surface((row_w, row_h-6),pygame.SRCALPHA)
+            bg.fill((int(28+20*tv),int(20+15*tv),int(12+8*tv),210))
+            self.screen.blit(bg,(rx,ry))
+
+            can = opt["afford"] and opt["useful"]
+            bc  = tuple(int(a+(b-a)*tv) for a,b in
+                        zip((55,42,26),(180,145,70))) if can else (35,26,14)
+            pygame.draw.rect(self.screen,bc,(rx,ry,row_w,row_h-6),2 if is_sel else 1)
+
+            # Colour dot
+            pygame.draw.circle(self.screen,opt["icon_col"],(rx+22,ry+(row_h-6)//2),10)
+
+            # Label
+            nc = (220,190,120) if (is_sel and can) else (140,110,65) if can else (75,58,35)
+            ns = self.font_medium.render(opt["label"],True,nc)
+            self.screen.blit(ns,(rx+42,ry+8))
+
+            # Detail
+            ds = self.font_tiny.render(opt["detail"],True,(100,78,45))
+            self.screen.blit(ds,(rx+42,ry+8+ns.get_height()+2))
+
+            # Cost
+            if opt["cost"] > 0:
+                cost_col = (220,185,50) if opt["afford"] else (120,70,40)
+                cs = self.font_medium.render(f"{opt['cost']}g",True,cost_col)
+                self.screen.blit(cs,(rx+row_w-cs.get_width()-10,
+                                      ry+(row_h-6)//2-cs.get_height()//2))
+            elif opt["label"] == "Leave":
+                es = self.font_tiny.render("free",True,(80,62,34))
+                self.screen.blit(es,(rx+row_w-es.get_width()-10,
+                                      ry+(row_h-6)//2-es.get_height()//2))
+
+            # Arrow
+            if is_sel:
+                arr = self.font_small.render("▶",True,self.shop_color)
+                self.screen.blit(arr,(rx+2,ry+(row_h-6)//2-arr.get_height()//2))
+
+        # HP bar below options
+        self._draw_hp_bar(rx, start_y+len(options)*row_h+8, row_w)
+
+        # Hint
+        hint = self.font_tiny.render("↑ ↓  select    ENTER  confirm    ESC  leave",
+                                      True,(70,54,28))
+        self.screen.blit(hint,(self.W//2-hint.get_width()//2,y+h-hint.get_height()-12))
+
+    def _draw_message(self, x, y, w):
+        if not self._message or self._message_timer <= 0: return
+        alpha = min(1.0, self._message_timer/0.4)
+        col   = (120,200,120) if self._msg_good else (200,100,80)
+        ms  = self.font_small.render(self._message,True,col)
+        bg  = pygame.Surface((ms.get_width()+20,ms.get_height()+8),pygame.SRCALPHA)
+        bg.fill((14,10,6,int(210*alpha)))
+        bx  = self.W//2-bg.get_width()//2
+        by  = y-bg.get_height()-8
+        self.screen.blit(bg,(bx,by))
+        pygame.draw.rect(self.screen,col,(bx,by,bg.get_width(),bg.get_height()),1)
+        ms.set_alpha(int(255*alpha))
+        self.screen.blit(ms,(bx+10,by+4))
+
+    # ------------------------------------------------------------------ #
+
+    def _do_action(self, idx):
+        hp = self._player_hp(); mhp = self._player_max_hp()
+        gold = self._gold()
+        if idx == 0:   # Light rest
+            if hp >= mhp:
+                self._message = "You are already at full health!"; self._msg_good = False
+            elif gold < self.PARTIAL_COST:
+                self._message = f"Need {self.PARTIAL_COST} gold!"; self._msg_good = False
+            else:
+                self._spend_gold(self.PARTIAL_COST)
+                healed = min(self.PARTIAL_HEAL, mhp-hp)
+                self._set_hp(hp+healed)
+                self._message = f"You rest briefly. +{healed} HP  ({self._player_hp()}/{mhp})"
+                self._msg_good = True
+        elif idx == 1:  # Full rest
+            if hp >= mhp:
+                self._message = "You are already at full health!"; self._msg_good = False
+            elif gold < self.FULL_COST:
+                self._message = f"Need {self.FULL_COST} gold!"; self._msg_good = False
+            else:
+                self._spend_gold(self.FULL_COST)
+                self._set_hp(mhp)
+                self._message = f"You sleep soundly. Full HP restored!  ({mhp}/{mhp})"
+                self._msg_good = True
+        elif idx == 2:  # Buy potion
+            if gold < self.POTION_COST:
+                self._message = f"Need {self.POTION_COST} gold!"; self._msg_good = False
+            else:
+                from src.scenes.chest_scene import PotionItem
+                self._spend_gold(self.POTION_COST)
+                self.inventory.add(PotionItem())
+                self._message = "Bought a Healing Potion!"; self._msg_good = True
+        elif idx == 3:
+            return "town"
+        self._message_timer = 2.5
+        return None
+
+    def run(self) -> str:
+        while True:
+            dt          = self.clock.tick(60)/1000.0
+            self.time  += dt
+            self.open_anim = min(self.open_anim+dt, self.OPEN_DUR)
+            t           = min(1.0, self.open_anim/self.OPEN_DUR)
+            self._message_timer = max(0.0, self._message_timer-dt)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT: return "exit"
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE: return "town"
+                    if event.key == pygame.K_UP:
+                        self.selected = max(0,self.selected-1)
+                    if event.key == pygame.K_DOWN:
+                        self.selected = min(3,self.selected+1)
+                    if event.key in (pygame.K_RETURN,pygame.K_SPACE):
+                        result = self._do_action(self.selected)
+                        if result: return result
+
+            self._draw_background()
+            px,py,pw,ph = self._draw_panel(t)
+            if t > 0.8:
+                self._draw_keeper(px+pw-90, py+50)
+                self._draw_options(px,py,pw,ph,t)
+                self._draw_message(px,py,pw)
+            pygame.display.flip()
 
 
 class GeneralShopScene(ShopScene):

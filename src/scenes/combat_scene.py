@@ -447,10 +447,12 @@ BOSS_NAME      = "GOBLIN KING"
 
 
 class CombatScene:
-    def __init__(self, screen, inventory, is_boss=False, armour=None):
+    def __init__(self, screen, inventory, is_boss=False, armour=None, player_hp=None, player_stats=None):
         self.inventory = inventory
         self.is_boss   = is_boss
         self.armour    = armour
+        self._start_hp   = player_hp
+        self.player_stats = player_stats
         self.screen = screen
         self.W, self.H = screen.get_size()
         self.clock = pygame.time.Clock()
@@ -486,7 +488,9 @@ class CombatScene:
             self._goblin_dmg   = GOBLIN_DAMAGE
 
         # Stats
-        self.player_hp  = PLAYER_MAX_HP
+        _max = self.player_stats.max_hp if self.player_stats else PLAYER_MAX_HP
+        self.player_hp  = self._start_hp if self._start_hp is not None else _max
+        self.player_max_hp = _max
 
         # State machine
         self.state          = STATE_MESSAGE
@@ -1008,7 +1012,7 @@ class CombatScene:
                 bw, bh, self.goblin_hp, self.goblin_max_hp, self._goblin_name)
             self._draw_health_bar(self.screen,
                 int(self.W*0.05), int(self.BATTLE_H*0.72),
-                bw, bh, self.player_hp, PLAYER_MAX_HP, "HERO")
+                bw, bh, self.player_hp, self.player_max_hp, "HERO")
 
             self.combat_goblin.draw(self.screen)
             self.combat_player.draw(self.screen)

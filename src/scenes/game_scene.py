@@ -431,8 +431,10 @@ def _draw_key_prompt(surface, font, cx, cy):
 # ---------------------------------------------------------------------------
 
 class GameScene:
-    def __init__(self, screen, inventory):
+    def __init__(self, screen, inventory, player_stats=None, game_state=None):
         self.inventory=inventory
+        self.player_stats=player_stats
+        self.game_state=game_state
         self.screen=screen
         self.W,self.H=screen.get_size()
         self.clock=pygame.time.Clock()
@@ -478,6 +480,13 @@ class GameScene:
                      for (col,row),items in zip(CHEST_POSITIONS,chest_items)]
 
         self.font_small=pygame.font.SysFont("courier new",15)
+
+        # HUD
+        if player_stats and game_state:
+            from src.ui.hud import HUD
+            self._hud = HUD(screen)
+        else:
+            self._hud = None
         self.COMBAT_COOLDOWN=1.5
         self.combat_cooldown=self.COMBAT_COOLDOWN
 
@@ -489,10 +498,13 @@ class GameScene:
         self.locked_doors=[LockedDoor(col,row,ori,kid)
                            for (col,row,ori),kid in zip(LOCKED_DOORS,DOOR_KEY_IDS)]
         self._defeated_goblin_idx=None
+        self._potion_msg       = ""
+        self._potion_msg_timer = 0.0
 
         self.visited=set()
         self.VISION_RADIUS=4
-        self.camera=Camera(self.W,self.H,COLS,ROWS,TILE_SIZE)
+        _hud_h = 52 if (player_stats and game_state) else 0
+        self.camera=Camera(self.W,self.H-_hud_h,COLS,ROWS,TILE_SIZE)
         self.camera.update(self.player.px,self.player.py)
 
     def _build_vignette(self):
@@ -650,6 +662,22 @@ class GameScene:
                             return "chest"
                         if self._nearby_door and self._nearby_door.locked:
                             return "use_key"
+                    if event.key==pygame.K_p:
+                        from src.scenes.chest_scene import PotionItem
+                        from src.scenes.combat_scene import POTION_HEAL, PLAYER_MAX_HP
+                        max_hp = self.player_stats.max_hp if self.player_stats else PLAYER_MAX_HP
+                        cur_hp = self.game_state.player_hp if self.game_state else max_hp
+                        if not self.inventory.has(PotionItem):
+                            self._potion_msg = "No potions left!"
+                        elif cur_hp >= max_hp:
+                            self._potion_msg = "Already at full HP!"
+                        else:
+                            self.inventory.remove_one(PotionItem)
+                            healed = min(POTION_HEAL, max_hp - cur_hp)
+                            if self.game_state:
+                                self.game_state.player_hp = cur_hp + healed
+                            self._potion_msg = f"Used potion. +{healed} HP  ({cur_hp+healed}/{max_hp})"
+                        self._potion_msg_timer = 2.0
 
             keys=pygame.key.get_pressed()
             for key,(dc,dr) in MOVE_KEYS.items():
@@ -680,6 +708,7 @@ class GameScene:
             if not self.boss_defeated:
                 self.boss.update(dt,self.player.tile_col,self.player.tile_row)
             self.combat_cooldown=max(0.0,self.combat_cooldown-dt)
+            self._potion_msg_timer=max(0.0,self._potion_msg_timer-dt)
             self.camera.update(self.player.px,self.player.py)
 
             if not self.player.moving:
@@ -729,5 +758,55 @@ class GameScene:
                 ccy=oy+self._nearby_chest.row*ts
                 _draw_e_prompt(self.screen,self.font_small,ccx,ccy)
 
+            # Potion hint
+            from src.scenes.chest_scene import PotionItem
+            if self.inventory.has(PotionItem):
+                count = self.inventory.count(PotionItem)
+                ph_s  = self.font_small.render(
+                    f"[ P ]  Use Potion  (x{count})", True, (160,210,140))
+                ph_bg = pygame.Surface((ph_s.get_width()+16,ph_s.get_height()+8),
+                                       pygame.SRCALPHA)
+                ph_bg.fill((10,8,5,160))
+                phx = self.W - ph_s.get_width() - 28
+                phy = self.H - 80
+                self.screen.blit(ph_bg,(phx-8,phy-4))
+                self.screen.blit(ph_s,(phx,phy))
+
             self.screen.blit(self.vignette,(0,0))
+
+            # Potion use message
+            if self._potion_msg and self._potion_msg_timer > 0:
+                alpha = min(1.0, self._potion_msg_timer / 0.4)
+                col   = (120,210,120) if "Used" in self._potion_msg else (210,100,80)
+                ms    = self.font_small.render(self._potion_msg, True, col)
+                bg    = pygame.Surface((ms.get_width()+20,ms.get_height()+8),
+                                       pygame.SRCALPHA)
+                bg.fill((10,8,5,int(200*alpha)))
+                bx2   = self.W//2-bg.get_width()//2
+                by2   = self.H-90
+                self.screen.blit(bg,(bx2,by2))
+                pygame.draw.rect(self.screen,col,(bx2,by2,bg.get_width(),bg.get_height()),1)
+                ms.set_alpha(int(255*alpha))
+                self.screen.blit(ms,(bx2+10,by2+4))
+
+            # HUD
+            # Sync gold to game_state for HUD display
+            if self.game_state:
+                from src.scenes.chest_scene import GoldItem
+                gold = sum(self.inventory.stack_count(it)
+                           for it in self.inventory.items
+                           if isinstance(it, GoldItem))
+                self.game_state.gold_collected = gold
+
+            if self._hud and self.player_stats and self.game_state:
+                self._hud.update(dt, self.player_stats, self.game_state)
+                boss_alive = not self.boss_defeated
+                self._hud.draw(
+                    self.player_stats,
+                    self.game_state,
+                    goblins_remaining=len(self.goblins),
+                    location_name="Dungeon — Ashenvale",
+                    boss_alive=boss_alive,
+                )
+
             pygame.display.flip()
