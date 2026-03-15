@@ -2,6 +2,7 @@ import pygame
 import sys
 
 from src.ui.menu import MenuScene
+from src.scenes.game_scene import GameScene
 
 
 def main():
@@ -11,15 +12,16 @@ def main():
     screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     pygame.display.set_caption("Dungeon")
 
+    scene = "menu"
+
     while True:
-        result = MenuScene(screen).run()
+        if scene == "menu":
+            scene = MenuScene(screen).run()
 
-        if result == "exit":
-            break
+        elif scene == "start":
+            scene = GameScene(screen).run()
 
-        if result == "start":
-            # Placeholder — swap this out when the game scene is ready
-            print("Game starting... (scene not built yet)")
+        elif scene == "exit":
             break
 
     pygame.quit()
