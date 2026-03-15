@@ -48,11 +48,10 @@ MOVE_KEYS = {
     pygame.K_d: ( 1,  0),
 }
 
-# Goblin patrol routes — list of (col, row) waypoints
 GOBLIN_PATROLS = [
-    [(3, 5),  (20, 5)],   # top patrol, walks horizontally
-    [(3, 11), (20, 11)],  # bottom patrol
-    [(12, 3), (12, 13)],  # middle vertical patrol
+    [(3, 5),  (20, 5)],
+    [(3, 11), (20, 11)],
+    [(12, 3), (12, 13)],
 ]
 
 
@@ -64,12 +63,12 @@ def _draw_floor_tile(surface, x, y, rng):
     ts = TILE_SIZE
     v  = rng.randint(-8, 8)
     pygame.draw.rect(surface, (38+v, 30+v, 22+v), (x, y, ts, ts))
-    pygame.draw.line(surface, (25, 20, 14), (x, y),       (x+ts-1, y),     1)
-    pygame.draw.line(surface, (25, 20, 14), (x, y),       (x, y+ts-1),     1)
+    pygame.draw.line(surface, (25,20,14), (x,y), (x+ts-1,y), 1)
+    pygame.draw.line(surface, (25,20,14), (x,y), (x,y+ts-1), 1)
     if rng.random() < 0.25:
         cx = x + rng.randint(8, ts-8)
         cy = y + rng.randint(8, ts-8)
-        pygame.draw.line(surface, (28, 22, 16), (cx, cy),
+        pygame.draw.line(surface, (28,22,16), (cx,cy),
                          (cx+rng.randint(-6,6), cy+rng.randint(-6,6)), 1)
 
 def _draw_wall_tile(surface, x, y, row, col, rng):
@@ -78,15 +77,15 @@ def _draw_wall_tile(surface, x, y, row, col, rng):
         base, hi, lo = (52,42,30), (68,56,40), (32,25,17)
     else:
         base, hi, lo = (46,37,26), (60,50,36), (28,22,14)
-    pygame.draw.rect(surface, base, (x, y, ts, ts))
-    pygame.draw.line(surface, hi, (x,y),         (x+ts-1,y),         1)
-    pygame.draw.line(surface, hi, (x,y),         (x,y+ts-1),         1)
-    pygame.draw.line(surface, lo, (x,y+ts-1),    (x+ts-1,y+ts-1),    1)
-    pygame.draw.line(surface, lo, (x+ts-1,y),    (x+ts-1,y+ts-1),    1)
+    pygame.draw.rect(surface, base, (x,y,ts,ts))
+    pygame.draw.line(surface, hi, (x,y),      (x+ts-1,y),      1)
+    pygame.draw.line(surface, hi, (x,y),      (x,y+ts-1),      1)
+    pygame.draw.line(surface, lo, (x,y+ts-1), (x+ts-1,y+ts-1), 1)
+    pygame.draw.line(surface, lo, (x+ts-1,y), (x+ts-1,y+ts-1), 1)
     pygame.draw.line(surface, (30,23,15), (x,y+ts//2), (x+ts,y+ts//2), 1)
 
 def _draw_void_tile(surface, x, y):
-    pygame.draw.rect(surface, (4,3,2), (x, y, TILE_SIZE, TILE_SIZE))
+    pygame.draw.rect(surface, (4,3,2), (x,y,TILE_SIZE,TILE_SIZE))
 
 def build_tile_surface():
     ts   = TILE_SIZE
@@ -125,28 +124,19 @@ class Torch:
         cx  = ox + self.col*ts + ts//2
         cy  = oy + self.row*ts + ts//2
         bri = self.flame_brightness(t)
-
         glow_r = int(ts*4.5)
         glow   = pygame.Surface((glow_r*2, glow_r*2), pygame.SRCALPHA)
-        for radius, alpha in [(glow_r, int(18*bri)),
-                               (glow_r*2//3, int(35*bri)),
-                               (glow_r//3,   int(55*bri))]:
+        for radius, alpha in [(glow_r,int(18*bri)),(glow_r*2//3,int(35*bri)),(glow_r//3,int(55*bri))]:
             pygame.draw.circle(glow, (200,130,40,alpha), (glow_r,glow_r), radius)
-        surface.blit(glow, (cx-glow_r, cy-glow_r),
-                     special_flags=pygame.BLEND_RGBA_ADD)
-
-        pygame.draw.rect(surface, (80,65,45), (cx-4, cy,   8, 10))
-        pygame.draw.rect(surface, (80,65,45), (cx-6, cy+8, 12, 4))
-
-        fx = cx
-        fy = cy - 2
+        surface.blit(glow, (cx-glow_r, cy-glow_r), special_flags=pygame.BLEND_RGBA_ADD)
+        pygame.draw.rect(surface, (80,65,45), (cx-4,cy,8,10))
+        pygame.draw.rect(surface, (80,65,45), (cx-6,cy+8,12,4))
+        fx, fy = cx, cy-2
         ox2 = int(math.sin(t*self.freq1*1.5+self.phase)*2)
-        pygame.draw.polygon(surface, (int(200*bri), int(100*bri), 10), [
-            (fx-6+ox2,fy),(fx-9+ox2,fy-8),(fx+ox2,fy-18),
-            (fx+9+ox2,fy-8),(fx+6+ox2,fy)])
-        pygame.draw.polygon(surface, (int(230*bri), int(155*bri), 20), [
-            (fx-3+ox2,fy-2),(fx-5+ox2,fy-9),(fx+ox2,fy-16),
-            (fx+5+ox2,fy-9),(fx+3+ox2,fy-2)])
+        pygame.draw.polygon(surface, (int(200*bri),int(100*bri),10), [
+            (fx-6+ox2,fy),(fx-9+ox2,fy-8),(fx+ox2,fy-18),(fx+9+ox2,fy-8),(fx+6+ox2,fy)])
+        pygame.draw.polygon(surface, (int(230*bri),int(155*bri),20), [
+            (fx-3+ox2,fy-2),(fx-5+ox2,fy-9),(fx+ox2,fy-16),(fx+5+ox2,fy-9),(fx+3+ox2,fy-2)])
         pygame.draw.polygon(surface, (255,230,160), [
             (fx-1+ox2,fy-4),(fx+ox2,fy-13),(fx+1+ox2,fy-4)])
 
@@ -169,11 +159,10 @@ class GameScene:
         self.tile_surf = build_tile_surface()
         self.torches   = [Torch(c,r) for c,r in TORCH_POSITIONS]
         self.vignette  = self._build_vignette()
-
-        self.player  = Player(12, 8, TILE_SIZE)
-        self.goblins = [
-            Goblin(patrol[0][0], patrol[0][1], TILE_SIZE, patrol)
-            for patrol in GOBLIN_PATROLS
+        self.player    = Player(12, 8, TILE_SIZE)
+        self.goblins   = [
+            Goblin(p[0][0], p[0][1], TILE_SIZE, p)
+            for p in GOBLIN_PATROLS
         ]
 
     def _build_vignette(self):
@@ -207,6 +196,14 @@ class GameScene:
                 self.player.try_move(dc, dr, ROOM_MAP)
                 break
 
+    def _check_combat(self):
+        """Returns True if the player has stepped onto a goblin's tile."""
+        for goblin in self.goblins:
+            if (goblin.tile_col == self.player.tile_col and
+                    goblin.tile_row == self.player.tile_row):
+                return True
+        return False
+
     def run(self):
         while True:
             dt        = self.clock.tick(60) / 1000.0
@@ -224,18 +221,17 @@ class GameScene:
             for goblin in self.goblins:
                 goblin.update(dt)
 
-            # --- draw ---
+            # Trigger combat when player reaches a goblin tile
+            if not self.player.moving and self._check_combat():
+                return "combat"
+
             self.screen.fill((4,3,2))
             self.screen.blit(self.tile_surf, (self.offset_x, self.offset_y))
             self._draw_ambient_darkness()
-
             for torch in self.torches:
                 torch.draw(self.screen, self.time, self.offset_x, self.offset_y)
-
             for goblin in self.goblins:
                 goblin.draw(self.screen, self.offset_x, self.offset_y)
-
             self.player.draw(self.screen, self.offset_x, self.offset_y)
-
             self.screen.blit(self.vignette, (0,0))
             pygame.display.flip()

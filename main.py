@@ -3,6 +3,7 @@ import sys
 
 from src.ui.menu import MenuScene
 from src.scenes.game_scene import GameScene
+from src.scenes.combat_scene import CombatScene
 
 
 def main():
@@ -20,6 +21,12 @@ def main():
 
         elif scene == "start":
             scene = GameScene(screen).run()
+
+        elif scene == "game":
+            scene = GameScene(screen).run()
+
+        elif scene == "combat":
+            scene = CombatScene(screen).run()
 
         elif scene == "exit":
             break
