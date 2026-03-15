@@ -9,16 +9,16 @@ import random
 
 TOWNS = [
     # Index 0 — starting hub in the rough centre
-    {"name": "Dungeon",      "x": 0.50, "y": 0.52, "type": "dungeon",  "desc": "The dungeon you just escaped from. Dark and foreboding."},
+    {"name": "Ashenvale",    "x": 0.50, "y": 0.52, "type": "capital",  "desc": "A grand walled city, seat of the kingdom. The dungeon lies just outside its walls."},
     # Surrounding towns — deliberately uneven distances and angles
-    {"name": "Ashenvale",    "x": 0.24, "y": 0.30, "type": "capital",  "desc": "A grand walled city, seat of the kingdom."},
-    {"name": "Millhaven",    "x": 0.58, "y": 0.20, "type": "town",     "desc": "A prosperous market town by the river."},
-    {"name": "Duskport",     "x": 0.82, "y": 0.28, "type": "port",     "desc": "A foggy harbour town, sailors and smugglers."},
-    {"name": "Ironhold",     "x": 0.78, "y": 0.58, "type": "fortress", "desc": "A dwarven fortress carved into the mountain."},
+    {"name": "Millhaven",    "x": 0.24, "y": 0.30, "type": "town",     "desc": "A prosperous market town by the river."},
+    {"name": "Duskport",     "x": 0.58, "y": 0.20, "type": "port",     "desc": "A foggy harbour town, sailors and smugglers."},
+    {"name": "Ironhold",     "x": 0.82, "y": 0.28, "type": "fortress", "desc": "A dwarven fortress carved into the mountain."},
+    {"name": "Thornwick",    "x": 0.78, "y": 0.58, "type": "town",     "desc": "A sleepy village surrounded by thorned hedgerows."},
     {"name": "Grimhaven",    "x": 0.66, "y": 0.78, "type": "dungeon",  "desc": "A cursed town bordering the dark marshes."},
     {"name": "Emberveil",    "x": 0.32, "y": 0.82, "type": "town",     "desc": "Famous for its fire festivals and spiced mead."},
     {"name": "Crestfall",    "x": 0.14, "y": 0.62, "type": "town",     "desc": "Built on the ruins of an older civilisation."},
-    {"name": "Thornwick",    "x": 0.20, "y": 0.46, "type": "town",     "desc": "A sleepy village surrounded by thorned hedgerows."},
+    {"name": "Ravenspire",   "x": 0.20, "y": 0.46, "type": "town",     "desc": "A tall dark tower town perched on a cliff edge."},
     {"name": "Veldmoor",     "x": 0.44, "y": 0.36, "type": "town",     "desc": "A muddy crossroads town, busy with travellers."},
 ]
 

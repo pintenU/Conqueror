@@ -356,7 +356,8 @@ class TakeButton:
 # ===========================================================================
 
 class ChestScene:
-    def __init__(self, screen, items: list, inventory):
+    def __init__(self, screen, items: list, inventory, chest=None):
+        self.chest = chest
         self.screen    = screen
         self.W, self.H = screen.get_size()
         self.clock     = pygame.time.Clock()
@@ -504,6 +505,21 @@ class ChestScene:
 
     # ------------------------------------------------------------------ #
 
+    def _close_chest(self):
+        """Remove taken items from chest and mark opened if all gone."""
+        if self.chest is None:
+            return
+        # Remove items that were taken
+        remaining = [item for i, item in enumerate(self.chest.items)
+                     if i < len(self.taken) and not self.taken[i]]
+        self.chest.items = remaining
+        # Mark as opened (lid stays open) if all items taken
+        if not remaining:
+            self.chest.opened = True
+        else:
+            # Partially looted — show as opened but still interactable
+            self.chest.opened = False
+
     def run(self) -> str:
         while True:
             dt         = self.clock.tick(60)/1000.0
@@ -517,9 +533,11 @@ class ChestScene:
                     return "exit"
                 if event.type == pygame.KEYDOWN:
                     if event.key in (pygame.K_e, pygame.K_ESCAPE):
+                        self._close_chest()
                         return "game"
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.close_rect.collidepoint(event.pos):
+                        self._close_chest()
                         return "game"
                     for i, btn in enumerate(self.take_btns):
                         if btn.is_clicked(event) and self.slots[i].item:

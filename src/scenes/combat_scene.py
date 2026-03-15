@@ -214,6 +214,165 @@ class CombatGoblin:
             pygame.draw.line(surface, (220,215,200),(tx,my),(tx,my-3),1)
 
 
+
+
+# ---------------------------------------------------------------------------
+# Goblin King combat sprite
+# ---------------------------------------------------------------------------
+
+class CombatGoblinKing:
+    """Big imposing boss sprite — drawn on the RIGHT side, facing left."""
+
+    def __init__(self, x: int, y: int, size: int):
+        self.base_x   = float(x)
+        self.base_y   = float(y)
+        self.x        = float(x)
+        self.y        = float(y)
+        self.size     = size
+        self.anim_time    = 0.0
+        self.flash_timer  = 0.0
+        self.FLASH_DUR    = 0.5
+        self.lunging      = False
+        self.lunge_timer  = 0.0
+        self.LUNGE_DUR    = 0.45
+
+    def start_lunge(self):
+        self.lunging = True
+        self.lunge_timer = 0.0
+
+    def start_flash(self):
+        self.flash_timer = self.FLASH_DUR
+
+    def update(self, dt):
+        self.anim_time   += dt
+        self.flash_timer  = max(0.0, self.flash_timer - dt)
+        if self.lunging:
+            self.lunge_timer += dt
+            t = self.lunge_timer / self.LUNGE_DUR
+            if t >= 1.0:
+                self.lunging = False
+                self.x = self.base_x
+                self.y = self.base_y
+            else:
+                self.x = self.base_x - math.sin(t * math.pi) * self.size * 1.2
+                self.y = self.base_y
+
+    def draw(self, surface):
+        s   = self.size
+        cx  = int(self.x)
+        cy  = int(self.y)
+        bob = math.sin(self.anim_time * 2.0) * 4 if not self.lunging else 0
+        flash = self.flash_timer / self.FLASH_DUR if self.flash_timer > 0 else 0.0
+
+        def fc(col):
+            return _lerp_col(col, (255,255,255), flash*0.65)
+
+        # Shadow (bigger than regular goblin)
+        sh = pygame.Surface((int(s*1.4), s//3), pygame.SRCALPHA)
+        pygame.draw.ellipse(sh,(0,0,0,60),(0,0,int(s*1.4),s//3))
+        surface.blit(sh,(cx-int(s*0.7), cy+int(s*0.55)-s//6))
+
+        # Legs — thick, powerful
+        lc = fc((50,100,40))
+        lw, lh = s//3, int(s*0.45)
+        lby = cy + int(s*0.3) + int(bob)
+        pygame.draw.rect(surface,lc,(cx-lw-6,lby,lw,lh))
+        pygame.draw.rect(surface,lc,(cx+6,   lby,lw,lh))
+        # Boots
+        pygame.draw.rect(surface,fc((35,55,20)),(cx-lw-8,lby+lh-8,lw+4,12))
+        pygame.draw.rect(surface,fc((35,55,20)),(cx+4,   lby+lh-8,lw+4,12))
+
+        # Body — barrel-chested
+        bw, bh = int(s*0.85), int(s*0.6)
+        bx = cx - bw//2
+        by = cy - bh//4 + int(bob)
+        pygame.draw.rect(surface,fc((65,128,50)),(bx,by,bw,bh))
+        pygame.draw.rect(surface,fc((40,85,30)),(bx,by,bw,bh),2)
+        # Armour plates on body
+        for i in range(3):
+            ax = bx + 4 + i*(bw//3)
+            pygame.draw.rect(surface,fc((80,65,40)),(ax,by+4,bw//3-4,bh//3))
+            pygame.draw.rect(surface,fc((60,48,28)),(ax,by+4,bw//3-4,bh//3),1)
+
+        # Arms — massive
+        arm_y = by + bh//5
+        # Left arm — raised with giant club toward player
+        pygame.draw.line(surface,fc((55,105,42)),(cx-bw//2,arm_y),
+                         (cx-bw//2-s//2,arm_y-s//4),6)
+        # Giant spiked club
+        club_x = cx-bw//2-s//2
+        club_y = arm_y-s//4
+        pygame.draw.line(surface,fc((110,78,42)),(club_x,club_y),
+                         (club_x-s//3,club_y-s//2),7)
+        # Club head (big)
+        pygame.draw.circle(surface,fc((90,62,30)),(club_x-s//3,club_y-s//2),s//5)
+        pygame.draw.circle(surface,fc((70,48,22)),(club_x-s//3,club_y-s//2),s//5,2)
+        # Spikes on club
+        for sa in [0,60,120,180,240,300]:
+            ra = math.radians(sa)
+            spx = club_x-s//3+int(math.cos(ra)*s//5)
+            spy = club_y-s//2+int(math.sin(ra)*s//5)
+            pygame.draw.line(surface,fc((140,100,50)),
+                             (club_x-s//3,club_y-s//2),(spx,spy),3)
+        # Right arm
+        pygame.draw.line(surface,fc((55,105,42)),(cx+bw//2,arm_y),
+                         (cx+bw//2+s//5,arm_y+s//6),5)
+
+        # Head — big and menacing
+        hr = int(s*0.35)
+        hx, hy = cx, by-hr+int(bob)
+        # Head base
+        pygame.draw.circle(surface,fc((80,148,60)),(hx,hy),hr)
+        pygame.draw.circle(surface,fc((55,105,42)),(hx,hy),hr,3)
+
+        # Crown — jagged iron crown
+        crown_col = fc((80,68,40))
+        crown_pts = [
+            (hx-hr,   hy-hr+6),
+            (hx-hr+4, hy-hr-12),
+            (hx-hr+10,hy-hr+2),
+            (hx-hr+16,hy-hr-16),
+            (hx,      hy-hr-4),
+            (hx+hr-16,hy-hr-16),
+            (hx+hr-10,hy-hr+2),
+            (hx+hr-4, hy-hr-12),
+            (hx+hr,   hy-hr+6),
+        ]
+        pygame.draw.polygon(surface,crown_col,crown_pts)
+        pygame.draw.polygon(surface,fc((110,92,55)),crown_pts,2)
+        # Crown jewels
+        for jx,jy,jc in [(hx-hr+16,hy-hr-10,(200,60,60)),
+                          (hx,       hy-hr-4, (60,180,60)),
+                          (hx+hr-16,hy-hr-10,(60,60,200))]:
+            pygame.draw.circle(surface,fc(jc),(jx,jy),4)
+
+        # Ears — huge and pointy
+        ec = fc((70,130,55))
+        pygame.draw.polygon(surface,ec,[
+            (hx-hr,     hy-4),
+            (hx-hr-18,  hy-22),
+            (hx-hr+5,   hy+6)])
+        pygame.draw.polygon(surface,ec,[
+            (hx+hr,     hy-4),
+            (hx+hr+18,  hy-22),
+            (hx+hr-5,   hy+6)])
+
+        # Eyes — glowing red (angry boss)
+        eox = hr//2
+        eye_col = fc((240,50,30))
+        pygame.draw.circle(surface,eye_col,(hx-eox,hy),5)
+        pygame.draw.circle(surface,eye_col,(hx+eox,hy),5)
+        pygame.draw.circle(surface,(255,180,100),(hx-eox,hy),2)
+        pygame.draw.circle(surface,(255,180,100),(hx+eox,hy),2)
+
+        # Snarl — jagged teeth
+        my = hy+hr//2
+        pygame.draw.line(surface,fc((15,10,5)),(hx-8,my),(hx+8,my),3)
+        for tx in [hx-6,hx-2,hx+2,hx+6]:
+            pygame.draw.line(surface,fc((230,220,200)),(tx,my),(tx,my-5),2)
+
+
+
 # ---------------------------------------------------------------------------
 # Action button
 # ---------------------------------------------------------------------------
@@ -281,10 +440,16 @@ SWORD_DAMAGE   = 6
 SUN_SWORD_DMG  = 12
 POTION_HEAL    = 5
 
+# Goblin King stats
+BOSS_MAX_HP    = 45
+BOSS_DAMAGE    = 12   # massive damage
+BOSS_NAME      = "GOBLIN KING"
+
 
 class CombatScene:
-    def __init__(self, screen, inventory):
+    def __init__(self, screen, inventory, is_boss=False):
         self.inventory = inventory
+        self.is_boss   = is_boss
         self.screen = screen
         self.W, self.H = screen.get_size()
         self.clock = pygame.time.Clock()
@@ -305,16 +470,29 @@ class CombatScene:
 
         ex = int(self.W * 0.72)
         ey = int(self.BATTLE_H * 0.35)
-        self.combat_goblin = CombatGoblin(ex, ey, self.SPRITE_SIZE)
+        if is_boss:
+            boss_size = int(self.SPRITE_SIZE * 1.55)
+            self.combat_goblin = CombatGoblinKing(ex, int(self.BATTLE_H*0.40), boss_size)
+            self.goblin_hp     = BOSS_MAX_HP
+            self.goblin_max_hp = BOSS_MAX_HP
+            self._goblin_name  = BOSS_NAME
+            self._goblin_dmg   = BOSS_DAMAGE
+        else:
+            self.combat_goblin = CombatGoblin(ex, ey, self.SPRITE_SIZE)
+            self.goblin_hp     = GOBLIN_MAX_HP
+            self.goblin_max_hp = GOBLIN_MAX_HP
+            self._goblin_name  = "GOBLIN"
+            self._goblin_dmg   = GOBLIN_DAMAGE
 
         # Stats
         self.player_hp  = PLAYER_MAX_HP
-        self.goblin_hp  = GOBLIN_MAX_HP
 
         # State machine
         self.state          = STATE_MESSAGE
         self.next_state     = STATE_PLAYER_CHOOSE
-        self.message        = "A wild GOBLIN appeared!"
+        self.message        = (f"The GOBLIN KING blocks your path! "
+                               "His eyes burn with fury!" if is_boss
+                               else f"A wild {self._goblin_name} appeared!")
         self.pending_action = None   # what the player chose
 
         # Action timer (how long to wait during animations)
@@ -337,6 +515,12 @@ class CombatScene:
         ]
         self._set_buttons_enabled(False)
 
+        # Disable RUN for boss fights
+        if self.is_boss:
+            for btn in self.buttons:
+                if btn.text == "RUN":
+                    btn.enabled = False
+
         # Relic selection menu
         self._relic_selection    = False
         self._relic_options      = []
@@ -350,7 +534,11 @@ class CombatScene:
 
     def _set_buttons_enabled(self, enabled: bool):
         for btn in self.buttons:
-            btn.enabled = enabled
+            # Never re-enable RUN during a boss fight
+            if btn.text == "RUN" and getattr(self, "is_boss", False):
+                btn.enabled = False
+            else:
+                btn.enabled = enabled
 
     def _show_message(self, text: str, next_state: str):
         self.state      = STATE_MESSAGE
@@ -685,9 +873,9 @@ class CombatScene:
             self.combat_goblin.start_flash()
 
             if weapon == "sun sword":
-                msg = f"The Sun Sword blazes! {damage} damage! ({self.goblin_hp}/{GOBLIN_MAX_HP} HP)"
+                msg = f"The Sun Sword blazes! {damage} damage! ({self.goblin_hp}/{self.goblin_max_hp} HP)"
             else:
-                msg = f"You slash with your sword for {damage} damage! ({self.goblin_hp}/{GOBLIN_MAX_HP} HP)"
+                msg = f"You slash with your sword for {damage} damage! ({self.goblin_hp}/{self.goblin_max_hp} HP)"
 
             if self.goblin_hp <= 0:
                 self._goblin_loot = self._roll_loot()
@@ -717,7 +905,7 @@ class CombatScene:
                     "The shield holds firm.",
                     STATE_PLAYER_CHOOSE)
                 return
-            dmg = GOBLIN_DAMAGE
+            dmg = self._goblin_dmg
             self.player_hp = max(0, self.player_hp - dmg)
             self.combat_player.start_flash()
             self._goblin_attacked = False   # reset for next round
@@ -744,6 +932,10 @@ class CombatScene:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return "exit"
+                if (event.type == pygame.KEYDOWN
+                        and event.key == pygame.K_ESCAPE
+                        and self.state not in (STATE_RELIC_MENU,)):
+                    return "pause"
 
                 if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
                     key = getattr(event, "key", None)
@@ -811,7 +1003,7 @@ class CombatScene:
             bh = 14
             self._draw_health_bar(self.screen,
                 int(self.W*0.60), int(self.BATTLE_H*0.06),
-                bw, bh, self.goblin_hp, GOBLIN_MAX_HP, "GOBLIN")
+                bw, bh, self.goblin_hp, self.goblin_max_hp, self._goblin_name)
             self._draw_health_bar(self.screen,
                 int(self.W*0.05), int(self.BATTLE_H*0.72),
                 bw, bh, self.player_hp, PLAYER_MAX_HP, "HERO")
