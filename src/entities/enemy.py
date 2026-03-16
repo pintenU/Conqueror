@@ -242,7 +242,7 @@ def _draw_dark_mage(surf, x, y, t, ts):
     bob = int(math.sin(t*2)*max(2,s//24))
     robe=(80,35,120); dark=(50,20,80)
     pulse=0.6+0.4*math.sin(t*3)
-    orb_col=(int(160*pulse),int(80*pulse),int(240*pulse))
+    orb_col=(int(160*pulse),int(80*pulse),max(0,min(255, max(0,min(255,int(240*pulse))))))
     sh = pygame.Surface((s,s//5),pygame.SRCALPHA)
     pygame.draw.ellipse(sh,(0,0,0,35),(0,0,s,s//5))
     surf.blit(sh,(cx-s//2,cy+s//3+bob//2))
@@ -271,7 +271,7 @@ def _draw_dark_mage(surf, x, y, t, ts):
     pygame.draw.circle(surf,(255,255,255),(cx+hr,cy-hr//2+bob),max(2,or2//2))
     # Aura
     gs=pygame.Surface((or2*4,or2*4),pygame.SRCALPHA)
-    pygame.draw.circle(gs,(*orb_col,int(30*pulse)),(or2*2,or2*2),or2*2)
+    pygame.draw.circle(gs, (orb_col[0], orb_col[1], orb_col[2], max(0,min(255, max(0,min(255,int(30*pulse)))))),(or2*2,or2*2),or2*2)
     surf.blit(gs,(cx+hr-or2*2,cy-hr//2+bob-or2*2),special_flags=pygame.BLEND_RGBA_ADD)
 
 
@@ -557,7 +557,7 @@ def _draw_lich(surf, x, y, t, ts):
     hover = int(math.sin(t*0.8)*max(4,s//10))  # slow hover
     robe=(60,20,100); dark=(40,10,70); bone=(200,195,175)
     pulse=0.5+0.5*math.sin(t*2)
-    aura_col=(int(140*pulse),int(50*pulse),int(220*pulse))
+    aura_col=(int(140*pulse),int(50*pulse),max(0,min(255, max(0,min(255,int(220*pulse))))))
     # Shadow — faint, far below since hovering
     sh=pygame.Surface((s,s//6),pygame.SRCALPHA)
     pygame.draw.ellipse(sh,(0,0,0,25),(0,0,s,s//6))
@@ -591,7 +591,7 @@ def _draw_lich(surf, x, y, t, ts):
     pygame.draw.circle(surf,(255,255,255),(cx+rw//2+s//5,cy-rh//4+hover+bob),max(2,or2//2))
     # Aura around orb
     gs=pygame.Surface((or2*4,or2*4),pygame.SRCALPHA)
-    pygame.draw.circle(gs,(*aura_col,int(40*pulse)),(or2*2,or2*2),or2*2)
+    pygame.draw.circle(gs, (aura_col[0], aura_col[1], aura_col[2], max(0,min(255, max(0,min(255,int(40*pulse)))))),(or2*2,or2*2),or2*2)
     surf.blit(gs,(cx+rw//2+s//5-or2*2,cy-rh//4+hover+bob-or2*2),special_flags=pygame.BLEND_RGBA_ADD)
     # Skull head — with crown
     hr=max(8,s//5)
@@ -696,7 +696,7 @@ def _draw_bone_lord(surf, x, y, t, ts):
     pulse=0.5+0.5*math.sin(t*3)
     for ex in [cx-eox,cx+eox]:
         pygame.draw.circle(surf,(10,8,5),(ex,cy-bh//2-hr*2+bob),er)
-        pygame.draw.circle(surf,(int(100*pulse),int(200*pulse),int(255*pulse)),
+        pygame.draw.circle(surf,(int(100*pulse),int(200*pulse),max(0,min(255, max(0,min(255,int(255*pulse)))))),
                            (ex,cy-bh//2-hr*2+bob),max(2,er-1))
     # Jaw
     pygame.draw.arc(surf,dark,(cx-hr//2,cy-bh//2-hr*2+hr//3+bob,hr,hr//3),
@@ -777,8 +777,8 @@ def _draw_archmage(surf, x, y, t, ts):
     hover=int(math.sin(t*0.7)*max(6,s//8))
     robe=(100,30,160); dark=(65,15,110); bone=(210,200,180)
     pulse=0.5+0.5*math.sin(t*2.5)
-    orb=(int(160*pulse),int(60*pulse),int(240*pulse))
-    orb2=(int(240*pulse),int(140*pulse),int(40*pulse))
+    orb=(int(160*pulse),int(60*pulse),max(0,min(255, max(0,min(255,int(240*pulse))))))
+    orb2=(int(240*pulse),int(140*pulse),max(0,min(255, max(0,min(255,int(40*pulse))))))
     # Shadow — faint (hovering high)
     sh=pygame.Surface((s,s//6),pygame.SRCALPHA)
     pygame.draw.ellipse(sh,(0,0,0,20),(0,0,s,s//6))
@@ -865,7 +865,7 @@ def _draw_inferno_duke(surf, x, y, t, ts):
         fy2=cy+int(math.sin(fa)*s//3)+hover+bob
         fr=max(4,s//10)
         gs=pygame.Surface((fr*2,fr*2),pygame.SRCALPHA)
-        pygame.draw.circle(gs,(int(255*pulse),int(120*pulse),0,int(40*pulse)),(fr,fr),fr)
+        pygame.draw.circle(gs,(int(255*pulse),int(120*pulse),0,max(0,min(255, max(0,min(255,int(40*pulse)))))),(fr,fr),fr)
         surf.blit(gs,(fx2-fr,fy2-fr),special_flags=pygame.BLEND_RGBA_ADD)
     # Large wings
     ww=max(12,s*2//5); wh=max(10,s//3)
@@ -1088,8 +1088,7 @@ def _draw_ancient_colossus(surf, x, y, t, ts):
         rx2=cx+int(math.cos(ra)*s//4)
         ry2=cy+int(math.sin(ra)*s//5)+bob
         gs2=pygame.Surface((max(4,s//10),max(4,s//10)),pygame.SRCALPHA)
-        pygame.draw.rect(gs2,(int(glow[0]*pulse),int(glow[1]*pulse),int(glow[2]*pulse),
-                              int(60*pulse)),(0,0,max(4,s//10),max(4,s//10)))
+        gs2.fill((int(glow[0]*pulse),int(glow[1]*pulse),int(glow[2]*pulse),max(0,min(255, max(0,min(255,int(60*pulse)))))))
         surf.blit(gs2,(rx2,ry2),special_flags=pygame.BLEND_RGBA_ADD)
     # Massive stone feet
     fw=max(14,s//5); fh=max(10,s//8)
@@ -1131,7 +1130,7 @@ def _draw_ancient_colossus(surf, x, y, t, ts):
         pygame.draw.rect(surf,ec_col,(ex-er//2,cy-bh//2-hh+hh//3+bob,er,er//2))
         # Glow around eyes
         gs3=pygame.Surface((er*3,er*3),pygame.SRCALPHA)
-        pygame.draw.ellipse(gs3,(*ec_col,int(50*pulse)),(0,0,er*3,er*3))
+        pygame.draw.ellipse(gs3, (ec_col[0], ec_col[1], ec_col[2], max(0,min(255, max(0,min(255,int(50*pulse)))))),(0,0,er*3,er*3))
         surf.blit(gs3,(ex-er*3//2,cy-bh//2-hh+hh//3+bob-er),special_flags=pygame.BLEND_RGBA_ADD)
     # Crack across face
     pygame.draw.line(surf,crack,(cx-hw//3,cy-bh//2-hh+bob),
@@ -1229,7 +1228,9 @@ def _draw_lich_king(surf, x, y, t, ts):
     robe=(50,15,90); dark=(30,8,60); bone=(210,200,178)
     gold=(200,165,35); ice=(100,210,240)
     pulse=0.4+0.5*math.sin(t*2)
-    soul=(int(100*pulse),int(30*pulse),int(200*pulse))
+    soul=(max(0,min(255,max(0,min(255, max(0,min(255,int(100*pulse))))))),
+          max(0,min(255,max(0,min(255, max(0,min(255,int(30*pulse))))))),
+          max(0,min(255,max(0,min(255, max(0,min(255,int(200*pulse))))))))
     # Shadow — very faint (high hover)
     sh=pygame.Surface((s,s//7),pygame.SRCALPHA)
     pygame.draw.ellipse(sh,(0,0,0,15),(0,0,s,s//7))
@@ -1238,7 +1239,7 @@ def _draw_lich_king(surf, x, y, t, ts):
     pa=math.radians(t*90)
     px2=cx+int(math.cos(pa)*s//3); py2=cy+int(math.sin(pa)*s//4)+hover+bob
     gs4=pygame.Surface((max(8,s//8),max(8,s//8)),pygame.SRCALPHA)
-    pygame.draw.rect(gs4,(*soul,int(100*pulse)),(0,0,max(8,s//8),max(8,s//8)))
+    gs4.fill((soul[0], soul[1], soul[2], max(0,min(255,max(0,min(255, max(0,min(255,int(100*pulse)))))))))
     surf.blit(gs4,(px2-max(4,s//16),py2-max(4,s//16)))
     pygame.draw.rect(surf,soul,(px2-max(4,s//16),py2-max(4,s//16),max(8,s//8),max(8,s//8)),max(2,s//32))
     # Soul wisps orbiting body
@@ -1247,7 +1248,7 @@ def _draw_lich_king(surf, x, y, t, ts):
         wx2=cx+int(math.cos(wa)*s*2//5)
         wy2=cy+int(math.sin(wa)*s//3)+hover+bob
         gs5=pygame.Surface((max(6,s//10),max(6,s//10)),pygame.SRCALPHA)
-        pygame.draw.ellipse(gs5,(*soul,int(40*pulse)),(0,0,max(6,s//10),max(6,s//10)))
+        gs5.fill((soul[0], soul[1], soul[2], max(0,min(255, max(0,min(255,int(40*pulse)))))))
         surf.blit(gs5,(wx2,wy2),special_flags=pygame.BLEND_RGBA_ADD)
     # Massive tattered robes — many layers
     rw=max(20,s*4//5); rh=max(20,s*4//5)
@@ -1280,7 +1281,7 @@ def _draw_lich_king(surf, x, y, t, ts):
     pygame.draw.circle(surf,soul,(cx-rw//2-s//4,cy-rh//3+hover+bob),or3)
     pygame.draw.circle(surf,(255,255,255),(cx-rw//2-s//4,cy-rh//3+hover+bob),max(2,or3//2))
     gs6=pygame.Surface((or3*4,or3*4),pygame.SRCALPHA)
-    pygame.draw.circle(gs6,(*soul,int(60*pulse)),(or3*2,or3*2),or3*2)
+    pygame.draw.circle(gs6, (soul[0], soul[1], soul[2], max(0,min(255, max(0,min(255,int(60*pulse)))))),(or3*2,or3*2),or3*2)
     surf.blit(gs6,(cx-rw//2-s//4-or3*2,cy-rh//3+hover+bob-or3*2),special_flags=pygame.BLEND_RGBA_ADD)
     # Right arm — holding sceptre
     pygame.draw.line(surf,bone,(cx+rw//2,cy-rh//8+hover+bob),
@@ -1310,7 +1311,7 @@ def _draw_lich_king(surf, x, y, t, ts):
         pygame.draw.circle(surf,soul,(ex,skull_y),max(2,er-1))
         # Eye glow halo
         gs7=pygame.Surface((er*4,er*4),pygame.SRCALPHA)
-        pygame.draw.circle(gs7,(*soul,int(40*pulse)),(er*2,er*2),er*2)
+        pygame.draw.circle(gs7, (soul[0], soul[1], soul[2], max(0,min(255, max(0,min(255,int(40*pulse)))))),(er*2,er*2),er*2)
         surf.blit(gs7,(ex-er*2,skull_y-er*2),special_flags=pygame.BLEND_RGBA_ADD)
     # Grinning skull jaw
     jaw_w=max(10,hr); jaw_h=max(5,hr//3)

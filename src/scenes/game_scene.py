@@ -72,7 +72,7 @@ def _build_room_map():
     _corridor_v(g, 57, 12, 2)   # R3 ↑ Side C (rows 12-13)
 
     # --- Test room --- south of entrance (wider and taller for 2 rows)
-    _room(g, 1, 27, 38, 12)
+    _room(g, 1, 27, 38, 11)
     # Corridor connecting entrance bottom to test room top
     for r2 in range(25, 28):
         for col2 in range(5, 8):
