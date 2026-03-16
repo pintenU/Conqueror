@@ -6,8 +6,11 @@ class Inventory:
         self._order    = []   # stack keys in insertion order
         self._uid      = 0    # for unique keys on non-stackables
 
-        from src.scenes.chest_scene import SwordItem, PotionItem
-        self.add(SwordItem())
+        from src.scenes.chest_scene import SwordItem, PotionItem, StickItem
+        # Start with a stick — upgrade at Gorin's Forge
+        stick = StickItem()
+        stick.upgrade_level = 0
+        self.add(stick)
         self.add(PotionItem())
 
     # ------------------------------------------------------------------ #

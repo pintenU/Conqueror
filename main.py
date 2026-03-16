@@ -12,11 +12,14 @@ from src.scenes.loot_scene import LootScene
 from src.scenes.map_scene import MapScene
 from src.scenes.world_map_scene import WorldMapScene
 from src.scenes.town_scene import TownScene
-from src.scenes.shop_scene import InnScene, GeneralShopScene, BlacksmithScene, AntiquityScene
+from src.scenes.blacksmith_scene import BlacksmithScene
+from src.scenes.shop_scene import InnScene, GeneralShopScene, AntiquityScene
 from src.inventory import Inventory
 from src.armour import ArmourSystem
 from src.scenes.armour_scene import ArmourScene
 from src.player_stats import PlayerStats, EXP_GOBLIN, EXP_BOSS
+from src.quest_system import QuestManager
+from src.scenes.quest_scene import NoticeBoardScene, QuestLogScene
 from src.entities.entity_factory import get_stat, roll_loot as factory_loot
 from src.scenes.levelup_scene import LevelUpScene
 from src.save_system import GameState, capture, restore, save_slot, load_slot, format_playtime
@@ -58,6 +61,7 @@ def main():
     inventory       = Inventory()
     armour          = ArmourSystem()
     player_stats    = PlayerStats()
+    quest_manager   = QuestManager()
     game_scene      = None
     pre_inv_scene   = "game"   # scene before inventory was opened
     town_idx        = 0           # which area we were at in town
@@ -91,6 +95,7 @@ def main():
                 inventory       = Inventory()
                 armour          = ArmourSystem()
                 player_stats    = PlayerStats()
+                quest_manager   = QuestManager()
                 game_scene      = None
                 dungeon_cleared = False
                 scene           = "start"
@@ -128,12 +133,12 @@ def main():
                 # Capture current state for saving
                 game_state.player_max_hp = player_stats.max_hp
                 capture(game_state, inventory, game_scene, dungeon_cleared,
-                        "dungeon" if prev_scene == "game" else "town", armour, player_stats)
+                        "dungeon" if prev_scene == "game" else "town", armour, player_stats, quest_manager)
                 r2 = SavesScene(screen, game_state=game_state, mode="both").run()
                 if isinstance(r2, tuple) and r2[0] == "loaded":
                     loaded = r2[1]
                     inventory       = Inventory()
-                    restore(loaded, inventory, armour, player_stats)
+                    restore(loaded, inventory, armour, player_stats, quest_manager)
                     game_state      = loaded
                     dungeon_cleared = loaded.dungeon_cleared
                     game_scene      = None
@@ -209,6 +214,10 @@ def main():
                 # Boss defeated — mark it
                 game_scene.boss_defeated = True
                 game_state.enemies_defeated += 1
+                quest_manager.on_boss_killed('goblin_king')
+                quest_manager.on_combat_round()
+                quest_manager.on_gold_collected(game_state.gold_collected)
+                newly_done = quest_manager.check_completion(inventory, game_state, player_stats)
                 leveled = player_stats.add_exp(EXP_BOSS)
                 for new_level in leveled:
                     LevelUpScene(screen, player_stats, new_level).run()
@@ -341,7 +350,7 @@ def main():
         elif scene == "town":
             # Autosave slot 0 when arriving in town
             game_state.player_max_hp = player_stats.max_hp
-            capture(game_state, inventory, game_scene, dungeon_cleared, "town", armour, player_stats)
+            capture(game_state, inventory, game_scene, dungeon_cleared, "town", armour, player_stats, quest_manager)
             save_slot(0, game_state)
             prev_scene = "town"
             raw        = TownScene(screen, inventory, "Ashenvale", start_idx=town_idx).run()
@@ -366,7 +375,7 @@ def main():
                 prev_scene = "town"
                 scene = "pause"
             elif result in ("inn","blacksmith","shop","antiquity",
-                            "world_map","exit"):
+                            "world_map","notice_board","quest_log","exit"):
                 scene = result
             else:
                 scene = "town"
@@ -379,7 +388,7 @@ def main():
             scene  = "town" if result != "exit" else "exit"
 
         elif scene == "blacksmith":
-            result = BlacksmithScene(screen, inventory).run()
+            result = BlacksmithScene(screen, inventory, armour=armour).run()
             scene  = "town" if result != "exit" else "exit"
 
         elif scene == "shop":
@@ -389,6 +398,14 @@ def main():
         elif scene == "antiquity":
             result = AntiquityScene(screen, inventory).run()
             scene  = "town" if result != "exit" else "exit"
+
+        elif scene == "notice_board":
+            result = NoticeBoardScene(screen, quest_manager, game_state).run()
+            scene  = "town" if result not in ("exit",) else "exit"
+
+        elif scene == "quest_log":
+            result = QuestLogScene(screen, quest_manager).run()
+            scene  = "town" if result not in ("exit",) else "exit"
 
         # ----------------------------------------------------------------
         # World map

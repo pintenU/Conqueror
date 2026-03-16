@@ -45,6 +45,7 @@ class GameState:
         self.chest_states      = []
         self.armour_data       = {}  # slot -> class name
         self.stats_data        = {}  # player stats dict
+        self.quest_data        = {}  # quest manager state
 
         # Timestamp
         self.save_time         = ""
@@ -70,6 +71,7 @@ class GameState:
             "chest_states":     self.chest_states,
             "armour_data":      self.armour_data,
             "stats_data":       self.stats_data,
+            "quest_data":       self.quest_data,
             "save_time":        self.save_time,
             "slot":             self.slot,
         }
@@ -152,7 +154,7 @@ def _dict_to_item(d: dict):
 
 def capture(state: GameState, inventory, game_scene=None,
             dungeon_cleared=False, current_location="dungeon",
-            armour=None, player_stats=None):
+            armour=None, player_stats=None, quest_manager=None):
     """Snapshot current game into a GameState."""
     state.dungeon_cleared  = dungeon_cleared
     state.current_location = current_location
@@ -173,6 +175,8 @@ def capture(state: GameState, inventory, game_scene=None,
         state.armour_data = armour.to_dict()
     if player_stats:
         state.stats_data = player_stats.to_dict()
+    if quest_manager:
+        state.quest_data = quest_manager.to_dict()
 
     if game_scene:
         state.door_states  = [d.locked for d in game_scene.locked_doors]
@@ -183,7 +187,7 @@ def capture(state: GameState, inventory, game_scene=None,
         ]
 
 
-def restore(state: GameState, inventory, armour=None, player_stats=None):
+def restore(state: GameState, inventory, armour=None, player_stats=None, quest_manager=None):
     """Restore inventory from a GameState."""
     # Clear current inventory
     inventory._stacks = {}
@@ -194,6 +198,8 @@ def restore(state: GameState, inventory, armour=None, player_stats=None):
         armour.from_dict(state.armour_data)
     if player_stats and state.stats_data:
         player_stats.from_dict(state.stats_data)
+    if quest_manager and state.quest_data:
+        quest_manager.from_dict(state.quest_data)
 
     for d in state.inventory_data:
         item = _dict_to_item(d)

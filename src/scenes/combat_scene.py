@@ -955,11 +955,29 @@ class CombatScene:
     # State machine
     # ------------------------------------------------------------------ #
 
+    def _get_weapon(self):
+        """Get the player's current weapon from inventory."""
+        from src.scenes.chest_scene import StickItem, SunSwordItem, SwordItem
+        for it in self.inventory.items:
+            if isinstance(it, SunSwordItem): return it, SUN_SWORD_DMG, "sun sword"
+        for it in self.inventory.items:
+            if isinstance(it, StickItem):
+                dmg = it.DAMAGE_VALUES[min(it.upgrade_level, 5)]
+                str_bonus = self.player_stats.atk_bonus if self.player_stats else 0
+                name = it.WEAPON_NAMES[min(it.upgrade_level, 5)].lower()
+                return it, dmg + str_bonus, name
+        for it in self.inventory.items:
+            if isinstance(it, SwordItem):
+                str_bonus = self.player_stats.atk_bonus if self.player_stats else 0
+                return it, SWORD_DAMAGE + str_bonus, "sword"
+        return None, SWORD_DAMAGE, "fists"
+
     def _handle_player_choose(self, event):
         for btn in self.buttons:
             if btn.is_clicked(event):
                 if btn.text == "ATTACK":
-                    self._player_attack(SWORD_DAMAGE, "sword")
+                    _, dmg, wname = self._get_weapon()
+                    self._player_attack(dmg, wname)
 
                 elif btn.text == "ITEMS":
                     from src.scenes.chest_scene import PotionItem
@@ -1422,8 +1440,9 @@ class CombatScene:
                      self.buttons[1].rect.y + 4))
 
                 from src.scenes.chest_scene import SunSwordItem, ShieldItem
-                # ATTACK always shows iron sword
-                atk_s = self.font_small.render("iron sword", True, (140,140,160))
+                # ATTACK shows current weapon
+                _, _, _wname = self._get_weapon()
+                atk_s = self.font_small.render(_wname, True, (140,140,160))
                 self.screen.blit(atk_s,
                     (self.buttons[0].rect.x + 6,
                      self.buttons[0].rect.bottom - atk_s.get_height() - 4))

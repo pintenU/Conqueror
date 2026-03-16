@@ -496,11 +496,12 @@ class GameScene:
         self.boss_defeated = False
 
         from src.scenes.chest_scene import (CandleItem,PotionItem,ShieldItem,
-                                             SunSwordItem,KeyItem,GoldItem,ExitKeyItem)
+                                             SunSwordItem,KeyItem,GoldItem,ExitKeyItem,IronIngotItem)
         import random as _r
 
         def _rand(n=2):
-            pool=[PotionItem,CandleItem,lambda:GoldItem(_r.choice([5,10,15]))]
+            pool=[PotionItem,CandleItem,lambda:GoldItem(_r.choice([5,10,15])),
+                  lambda:IronIngotItem() if _r.random()<0.35 else PotionItem()]
             return [_r.choice(pool)() for _ in range(n)]
 
         chest_items=[

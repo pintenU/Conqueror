@@ -1,13 +1,13 @@
 {
-  "playtime_seconds": 973.2108550071716,
-  "enemies_defeated": 8,
+  "playtime_seconds": 2091.322741508484,
+  "enemies_defeated": 12,
   "quests_cleared": 0,
-  "gold_collected": 33,
+  "gold_collected": 0,
   "chests_opened": 0,
-  "player_hp": 25,
+  "player_hp": 30,
   "player_max_hp": 30,
   "dungeon_cleared": true,
-  "current_location": "dungeon",
+  "current_location": "town",
   "inventory_data": [
     {
       "type": "SwordItem",
@@ -17,39 +17,6 @@
     {
       "type": "PotionItem",
       "kwargs": {},
-      "stack_count": 11
-    },
-    {
-      "type": "GoldItem",
-      "kwargs": {
-        "amount": 33
-      },
-      "stack_count": 33
-    },
-    {
-      "type": "CandleItem",
-      "kwargs": {},
-      "stack_count": 3
-    },
-    {
-      "type": "KeyItem",
-      "kwargs": {
-        "key_id": "key_r1r2"
-      },
-      "stack_count": 1
-    },
-    {
-      "type": "KeyItem",
-      "kwargs": {
-        "key_id": "key_r1r2"
-      },
-      "stack_count": 1
-    },
-    {
-      "type": "KeyItem",
-      "kwargs": {
-        "key_id": "key_r1r2"
-      },
       "stack_count": 1
     }
   ],
@@ -247,6 +214,32 @@
     "strength": 0,
     "magic_mastery": 0
   },
-  "save_time": "2026-03-16  11:42",
+  "quest_data": {
+    "active": [
+      {
+        "id": "survive_10_rounds",
+        "title": "Trial by Combat",
+        "desc": "Survive 10 total rounds of combat.",
+        "type": "survive_rounds",
+        "target": null,
+        "target_name": "Combat Rounds",
+        "required": 10,
+        "progress": 0,
+        "reward_gold": 35,
+        "reward_exp": 50,
+        "reward_item": null,
+        "difficulty": 1,
+        "flavour": "Prove you can take a hit."
+      }
+    ],
+    "completed": [],
+    "available": [
+      "kill_rats_5",
+      "survive_10_rounds",
+      "kill_trolls_3",
+      "kill_imps_4"
+    ]
+  },
+  "save_time": "2026-03-16  12:36",
   "slot": 0
 }

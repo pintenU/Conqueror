@@ -555,15 +555,29 @@ class ShopScene:
 
 class InnScene:
     """
-    Standalone inn scene — not a ShopScene.
-    Two rest options: partial and full, plus potion buying.
-    Tracks and modifies player HP via game_state.
+    The Rusty Flagon — full inn scene with innkeeper NPC,
+    rumour board, rest options and potion buying.
     """
 
     PARTIAL_COST = 7
     PARTIAL_HEAL = 15
     FULL_COST    = 15
     POTION_COST  = 6
+
+    RUMOURS = [
+        "They say the Goblin King wears a crown made from adventurer bones...",
+        "Old Mira found strange tracks near the dungeon entrance last week.",
+        "A troll was spotted near the eastern gate. Best travel in daylight.",
+        "The chest in the final room hasn't been opened in thirty years.",
+        "Word is there's a blade down there that glows like the sun itself.",
+        "Three adventurers went in last month. Only one came back — won't say a word.",
+        "The skeletons down there used to be the king's own soldiers, they say.",
+        "Bring potions. Lots of them. You'll thank me later.",
+        "The rats in that dungeon are the size of dogs. I've seen them myself.",
+        "Someone sold a gold ingot at the market claiming it came from the dungeon.",
+        "The Goblin King heals himself. Don't let the fight drag on.",
+        "There's a locked door or two down there. Keys are hidden in side rooms.",
+    ]
 
     def __init__(self, screen, inventory, game_state=None):
         self.screen     = screen
@@ -573,21 +587,39 @@ class InnScene:
         self.inventory  = inventory
         self.game_state = game_state
 
-        self.font_title  = pygame.font.SysFont("courier new", 28, bold=True)
-        self.font_medium = pygame.font.SysFont("courier new", 18, bold=True)
-        self.font_small  = pygame.font.SysFont("courier new", 14)
-        self.font_tiny   = pygame.font.SysFont("courier new", 12)
+        self.font_title  = pygame.font.SysFont("courier new", 26, bold=True)
+        self.font_medium = pygame.font.SysFont("courier new", 17, bold=True)
+        self.font_small  = pygame.font.SysFont("courier new", 13)
+        self.font_tiny   = pygame.font.SysFont("courier new", 11)
 
         self._message       = ""
         self._message_timer = 0.0
         self._msg_good      = True
         self.open_anim      = 0.0
         self.OPEN_DUR       = 0.4
-        self.selected       = 0   # 0=partial, 1=full, 2=potion, 3=leave
+        self.selected       = 0
 
-        # Colours
+        # Rumour cycling
+        import random as _r
+        self._rumour_idx   = _r.randint(0, len(self.RUMOURS)-1)
+        self._rumour_timer = 0.0
+        self.RUMOUR_DUR    = 6.0
+
+        # Dialogue state
+        self._dialogue_idx = 0
+        self._show_dialogue = False
+        self._dialogues = [
+            "Welcome to the Rusty Flagon!\nRest your weary bones.",
+            "Heading into the dungeon?\nMake sure you're well rested first.",
+            "The name's Borin. I've kept\nthis inn for thirty years.",
+            "Heard something howling down\nthere last night. Nasty business.",
+            "Another round? Ha! You adventurers\nare good for business, I'll say that.",
+        ]
+        import random as _r2
+        self._current_dialogue = _r2.choice(self._dialogues)
+
         self.shop_color   = (140, 95, 45)
-        self.keeper_color = (190, 155, 100)
+        self.keeper_color = (195, 160, 110)
 
     # ------------------------------------------------------------------ #
 
@@ -627,264 +659,424 @@ class InnScene:
     # ------------------------------------------------------------------ #
 
     def _draw_background(self):
+        # Warm dark interior
         for y in range(self.H):
             t2 = y/self.H
-            r  = int(25+15*t2); g2 = int(16+10*t2); b = int(8+5*t2)
+            r  = int(28+18*t2); g2 = int(18+12*t2); b = int(10+6*t2)
             pygame.draw.line(self.screen,(r,g2,b),(0,y),(self.W,y))
-        # Fireplace glow bottom centre
-        pulse = 0.6+0.4*math.sin(self.time*2.0)
-        gs = pygame.Surface((400,300))
-        gs.fill((25,16,8))
-        pygame.draw.ellipse(gs,(int(160*pulse),int(80*pulse),int(20*pulse)),
-                            (0,0,400,300))
-        gs.set_colorkey((25,16,8))
-        self.screen.blit(gs,(self.W//2-200,self.H-250))
 
-    def _draw_panel(self, t):
-        pw = int(self.W * 0.68)
-        ph = int(self.H * 0.80)
-        px = self.W//2 - pw//2
-        py = self.H//2 - ph//2
-        ease = 1-(1-t)**3
-        w = int(pw*ease); h = int(ph*ease)
-        x = self.W//2 - w//2; y = self.H//2 - h//2
-        if w < 4: return px,py,pw,ph
+        # Fireplace on the right wall
+        pulse = 0.55+0.45*math.sin(self.time*2.2)
+        flicker = 0.6+0.4*math.sin(self.time*5.1+0.8)
+        fw,fh = 120,90
+        fx = self.W-fw-40; fy = self.H-fh-30
+        # Mantle
+        pygame.draw.rect(self.screen,(100,80,50),(fx-12,fy-18,fw+24,18))
+        pygame.draw.rect(self.screen,(75,58,32),(fx-12,fy-18,fw+24,18),2)
+        # Firebox
+        pygame.draw.rect(self.screen,(40,28,15),(fx,fy,fw,fh))
+        pygame.draw.rect(self.screen,(65,45,22),(fx,fy,fw,fh),2)
+        # Arch
+        pygame.draw.ellipse(self.screen,(40,28,15),(fx,fy-fh//3,fw,fh//2))
+        # Fire glow
+        for fi,(fr,fg2,fb2,fa) in enumerate([
+            (int(200*pulse*flicker),int(100*pulse),20,int(120*pulse)),
+            (int(240*pulse),int(140*pulse*flicker),30,int(80*pulse)),
+            (255,int(200*flicker),50,int(60*pulse))]):
+            gs2=pygame.Surface((fw-fi*20,fh-fi*15),pygame.SRCALPHA)
+            pygame.draw.ellipse(gs2,(fr,fg2,fb2,fa),(0,0,fw-fi*20,fh-fi*15))
+            self.screen.blit(gs2,(fx+fi*10,fy+fi*8),special_flags=pygame.BLEND_RGBA_ADD)
+        # Flame tips
+        for fli in range(5):
+            flx=fx+15+fli*18; fly=fy+fh//3
+            fla=math.radians(-20+fli*10)+math.sin(self.time*4+fli)*0.3
+            flen=20+int(15*math.sin(self.time*3+fli))
+            pygame.draw.polygon(self.screen,(int(255*flicker),int(160*pulse),20),[
+                (flx-5,fly),(flx+int(math.sin(fla)*flen),fly-flen),(flx+5,fly)])
 
-        sh = pygame.Surface((w+14,h+14),pygame.SRCALPHA)
-        sh.fill((0,0,0,90))
-        self.screen.blit(sh,(x-7,y-7))
-        panel = pygame.Surface((w,h),pygame.SRCALPHA)
-        panel.fill((16,12,8,248))
-        self.screen.blit(panel,(x,y))
-        pygame.draw.rect(self.screen,self.shop_color,(x,y,w,h),2)
-        pygame.draw.rect(self.screen,tuple(max(0,c-40) for c in self.shop_color),
-                         (x+5,y+5,w-10,h-10),1)
-        sz = 14; c2 = tuple(min(255,c+30) for c in self.shop_color)
-        for bx,by,dx,dy in [(x,y,1,1),(x+w,y,-1,1),(x,y+h,1,-1),(x+w,y+h,-1,-1)]:
-            pygame.draw.line(self.screen,c2,(bx,by),(bx+dx*sz,by),2)
-            pygame.draw.line(self.screen,c2,(bx,by),(bx,by+dy*sz),2)
-        if t > 0.8:
-            title = self.font_title.render("The Rusty Flagon",True,(215,180,105))
-            self.screen.blit(title,(self.W//2-title.get_width()//2,y+12))
-            pygame.draw.line(self.screen,self.shop_color,
-                             (x+20,y+12+title.get_height()+4),
-                             (x+w-20,y+12+title.get_height()+4),1)
-            gold_s = self.font_medium.render(f"Gold: {self._gold()}",True,(220,185,60))
-            self.screen.blit(gold_s,(x+w-gold_s.get_width()-16,y+12))
-        return px,py,pw,ph
+        # Fireplace glow spilling onto floor
+        gs3=pygame.Surface((300,200),pygame.SRCALPHA)
+        pygame.draw.ellipse(gs3,(int(160*pulse),int(80*pulse),20,int(40*pulse)),(0,0,300,200))
+        self.screen.blit(gs3,(fx-90,fy+40),special_flags=pygame.BLEND_RGBA_ADD)
+
+        # Wooden beams on ceiling
+        for bx2 in range(0,self.W,90):
+            pygame.draw.rect(self.screen,(55,38,20),(bx2,0,22,35))
+            pygame.draw.rect(self.screen,(42,28,12),(bx2,0,22,35),1)
+
+        # Wall-mounted torch left side
+        tx=60; ty=self.H//3
+        pygame.draw.rect(self.screen,(80,60,30),(tx-3,ty,6,20))
+        tp=0.7+0.3*math.sin(self.time*3.8+1.2)
+        pygame.draw.polygon(self.screen,(int(220*tp),int(120*tp),20),[
+            (tx-5,ty),(tx,ty-18),(tx+5,ty)])
+        tgs=pygame.Surface((50,50),pygame.SRCALPHA)
+        pygame.draw.circle(tgs,(int(200*tp),int(110*tp),20,int(50*tp)),(25,25),22)
+        self.screen.blit(tgs,(tx-25,ty-28),special_flags=pygame.BLEND_RGBA_ADD)
 
     def _draw_keeper(self, cx, cy):
+        """Draw Borin the innkeeper — portly, friendly, holding a mug."""
         c = self.keeper_color
-        dark = tuple(max(0,v-40) for v in c)
-        pygame.draw.ellipse(self.screen,c,(cx-30,cy-20,60,80))
-        pygame.draw.ellipse(self.screen,dark,(cx-30,cy-20,60,80),2)
-        pygame.draw.circle(self.screen,c,(cx,cy-35),28)
-        pygame.draw.circle(self.screen,dark,(cx,cy-35),28,2)
-        pygame.draw.circle(self.screen,(40,30,15),(cx-9,cy-38),5)
-        pygame.draw.circle(self.screen,(40,30,15),(cx+9,cy-38),5)
-        pygame.draw.circle(self.screen,(220,200,160),(cx-9,cy-38),2)
-        pygame.draw.circle(self.screen,(220,200,160),(cx+9,cy-38),2)
-        pygame.draw.arc(self.screen,dark,(cx-10,cy-32,20,12),math.pi,2*math.pi,2)
-        # Mug
-        pygame.draw.rect(self.screen,(100,70,35),(cx+18,cy+10,16,18))
-        pygame.draw.arc(self.screen,(80,55,25),(cx+30,cy+12,10,12),
-                        -math.pi/2,math.pi/2,3)
-        # Speech bubble
-        quote = self.font_tiny.render('"Rest your bones, traveller."',
-                                       True,(160,135,85))
-        self.screen.blit(quote,(cx-quote.get_width()//2,cy+65))
+        dark = tuple(max(0,v-50) for v in c)
+        apron = (210,195,165)
+
+        # Body — portly
+        pygame.draw.ellipse(self.screen,c,(cx-38,cy-15,76,95))
+        pygame.draw.ellipse(self.screen,dark,(cx-38,cy-15,76,95),2)
+        # Apron
+        pygame.draw.polygon(self.screen,apron,[
+            (cx-22,cy-10),(cx+22,cy-10),(cx+28,cy+75),(cx-28,cy+75)])
+        pygame.draw.polygon(self.screen,(180,165,140),[
+            (cx-22,cy-10),(cx+22,cy-10),(cx+28,cy+75),(cx-28,cy+75)],1)
+        # Apron strings
+        pygame.draw.line(self.screen,(180,165,140),(cx-22,cy-10),(cx-38,cy-18),2)
+        pygame.draw.line(self.screen,(180,165,140),(cx+22,cy-10),(cx+38,cy-18),2)
+        # Head — round and jovial
+        pygame.draw.circle(self.screen,c,(cx,cy-35),32)
+        pygame.draw.circle(self.screen,dark,(cx,cy-35),32,2)
+        # Rosy cheeks
+        for chx in [cx-15,cx+15]:
+            chsurf=pygame.Surface((18,12),pygame.SRCALPHA)
+            pygame.draw.ellipse(chsurf,(220,120,100,80),(0,0,18,12))
+            self.screen.blit(chsurf,(chx-9,cy-30))
+        # Eyes — friendly squint
+        for ex in [cx-10,cx+10]:
+            pygame.draw.circle(self.screen,(45,30,15),(ex,cy-38),5)
+            pygame.draw.circle(self.screen,(255,220,180),(ex,cy-38),2)
+        # Big smile
+        pygame.draw.arc(self.screen,dark,(cx-12,cy-32,24,16),math.pi,2*math.pi,3)
+        # Bushy eyebrows
+        for ex,edir in [(cx-14,-1),(cx+6,1)]:
+            pygame.draw.line(self.screen,(100,70,35),(ex,cy-46),(ex+edir*10,cy-43),3)
+        # Moustache
+        pygame.draw.arc(self.screen,(110,80,40),(cx-14,cy-34,14,10),0,math.pi,3)
+        pygame.draw.arc(self.screen,(110,80,40),(cx+0,cy-34,14,10),0,math.pi,3)
+        # Ale mug in right hand
+        mx=cx+42; my=cy+10
+        pygame.draw.rect(self.screen,(110,80,40),(mx,my,22,28))
+        pygame.draw.rect(self.screen,(80,55,22),(mx,my,22,28),2)
+        pygame.draw.arc(self.screen,(80,55,22),(mx+18,my+4,14,16),-math.pi/2,math.pi/2,3)
+        # Foam on top
+        foam_s=pygame.Surface((22,10),pygame.SRCALPHA)
+        pygame.draw.ellipse(foam_s,(235,228,215,200),(0,0,22,10))
+        self.screen.blit(foam_s,(mx,my-4))
+        # Arm holding mug
+        pygame.draw.line(self.screen,c,(cx+36,cy+5),(mx,my+10),8)
+
+    def _draw_rumour_board(self, x, y, w):
+        """Notice board with current rumour."""
+        bh = 65
+        pygame.draw.rect(self.screen,(100,75,40),(x,y,w,bh))
+        pygame.draw.rect(self.screen,(75,55,25),(x,y,w,bh),2)
+        # Corner nails
+        for nx2,ny2 in [(x+5,y+5),(x+w-5,y+5),(x+5,y+bh-5),(x+w-5,y+bh-5)]:
+            pygame.draw.circle(self.screen,(160,130,55),(nx2,ny2),3)
+        # Paper
+        pygame.draw.rect(self.screen,(215,202,175),(x+8,y+8,w-16,bh-16))
+        pygame.draw.rect(self.screen,(180,165,140),(x+8,y+8,w-16,bh-16),1)
+        # Header
+        hdr=self.font_tiny.render("NOTICE BOARD",True,(100,78,38))
+        self.screen.blit(hdr,(x+w//2-hdr.get_width()//2,y+10))
+        # Rumour text — word wrap
+        rumour = self.RUMOURS[self._rumour_idx]
+        words = rumour.split()
+        lines = []; cur = ""
+        for word in words:
+            test = cur+(" " if cur else "")+word
+            if self.font_tiny.size(test)[0] < w-24:
+                cur = test
+            else:
+                lines.append(cur); cur = word
+        if cur: lines.append(cur)
+        for li,line in enumerate(lines[:2]):
+            ls=self.font_tiny.render(line,True,(65,50,28))
+            self.screen.blit(ls,(x+12,y+22+li*14))
 
     def _draw_hp_bar(self, x, y, w):
-        hp  = self._player_hp()
-        mhp = self._player_max_hp()
-        # Label
-        lab = self.font_small.render(f"HP:  {hp} / {mhp}",True,(200,165,90))
+        hp=self._player_hp(); mhp=self._player_max_hp()
+        lab=self.font_small.render(f"HP: {hp}/{mhp}",True,(200,165,90))
         self.screen.blit(lab,(x,y))
-        # Bar background
-        bw = w-lab.get_width()-16; bx = x+lab.get_width()+16; by = y+3
-        bh = 14
+        bw=w-lab.get_width()-12; bx=x+lab.get_width()+12; by=y+3; bh=13
         pygame.draw.rect(self.screen,(35,22,14),(bx,by,bw,bh))
         pygame.draw.rect(self.screen,(65,42,24),(bx,by,bw,bh),1)
-        # Fill
-        fill = max(0,int(bw*(hp/mhp)))
-        if fill > 0:
-            col = (60,180,60) if hp/mhp>0.5 else (200,160,40) if hp/mhp>0.25 else (200,50,40)
+        fill=max(0,int(bw*(hp/mhp)))
+        if fill>0:
+            col=(60,180,60) if hp/mhp>0.5 else (200,160,40) if hp/mhp>0.25 else (200,50,40)
             pygame.draw.rect(self.screen,col,(bx,by,fill,bh))
 
-    def _draw_options(self, x, y, w, h, t):
-        if t < 0.8: return
-        hp  = self._player_hp()
-        mhp = self._player_max_hp()
-        gold = self._gold()
+    def _draw_dialogue_bubble(self, cx, cy):
+        """Speech bubble above innkeeper."""
+        lines = self._current_dialogue.split("\n")
+        max_w = max(self.font_small.size(l)[0] for l in lines)+20
+        bh2 = len(lines)*18+14
+        bx = cx-max_w//2; by = cy-bh2-20
+        # Bubble
+        pygame.draw.rect(self.screen,(240,228,200),(bx,by,max_w,bh2),border_radius=6)
+        pygame.draw.rect(self.screen,(180,150,90),(bx,by,max_w,bh2),2,border_radius=6)
+        # Tail
+        pygame.draw.polygon(self.screen,(240,228,200),[
+            (cx-8,by+bh2),(cx+8,by+bh2),(cx,by+bh2+14)])
+        pygame.draw.line(self.screen,(180,150,90),(cx-8,by+bh2),(cx,by+bh2+14),2)
+        pygame.draw.line(self.screen,(180,150,90),(cx+8,by+bh2),(cx,by+bh2+14),2)
+        for li,line in enumerate(lines):
+            ls=self.font_small.render(line,True,(55,40,20))
+            self.screen.blit(ls,(bx+10,by+7+li*18))
 
-        options = [
-            {
-                "label":   "Light Rest",
-                "detail":  f"Restore {self.PARTIAL_HEAL} HP",
-                "cost":    self.PARTIAL_COST,
-                "afford":  gold >= self.PARTIAL_COST,
-                "useful":  hp < mhp,
-                "icon_col":(80,160,120),
-            },
-            {
-                "label":   "Full Rest",
-                "detail":  "Restore all HP",
-                "cost":    self.FULL_COST,
-                "afford":  gold >= self.FULL_COST,
-                "useful":  hp < mhp,
-                "icon_col":(60,140,200),
-            },
-            {
-                "label":   "Buy Potion",
-                "detail":  "Restores 5 HP in combat",
-                "cost":    self.POTION_COST,
-                "afford":  gold >= self.POTION_COST,
-                "useful":  True,
-                "icon_col":(180,60,60),
-            },
-            {
-                "label":   "Leave",
-                "detail":  "Head back outside",
-                "cost":    0,
-                "afford":  True,
-                "useful":  True,
-                "icon_col":(120,95,55),
-            },
+    def _draw_options(self, x, y, w, h, ease):
+        if ease < 0.8: return
+        hp=self._player_hp(); mhp=self._player_max_hp(); gold=self._gold()
+        options=[
+            {"label":"Light Rest",   "detail":f"Restore {self.PARTIAL_HEAL} HP",
+             "cost":self.PARTIAL_COST,"afford":gold>=self.PARTIAL_COST,
+             "useful":hp<mhp,"icon":(80,160,120)},
+            {"label":"Full Rest",    "detail":"Restore all HP",
+             "cost":self.FULL_COST,  "afford":gold>=self.FULL_COST,
+             "useful":hp<mhp,"icon":(60,140,200)},
+            {"label":"Buy Potion",   "detail":"Restores 5 HP in combat",
+             "cost":self.POTION_COST,"afford":gold>=self.POTION_COST,
+             "useful":True,"icon":(180,60,60)},
+            {"label":"Leave",        "detail":"Head back outside",
+             "cost":0,"afford":True,"useful":True,"icon":(120,95,55)},
         ]
-
-        row_h = 58; row_w = int(w*0.60)
-        rx    = x + (w-row_w)//2 - 40
-        start_y = y + 65
-
-        for i, opt in enumerate(options):
-            ry     = start_y + i*row_h
-            is_sel = (i == self.selected)
-            tv     = 1.0 if is_sel else 0.0
-
-            bg = pygame.Surface((row_w, row_h-6),pygame.SRCALPHA)
+        row_h=52; row_w=int(w*0.88)
+        rx=x+20; start_y=y+55
+        for i,opt in enumerate(options):
+            ry=start_y+i*row_h; is_sel=(i==self.selected)
+            tv=1.0 if is_sel else 0.0
+            can=opt["afford"] and opt["useful"]
+            bg=pygame.Surface((row_w,row_h-6),pygame.SRCALPHA)
             bg.fill((int(28+20*tv),int(20+15*tv),int(12+8*tv),210))
             self.screen.blit(bg,(rx,ry))
-
-            can = opt["afford"] and opt["useful"]
-            bc  = tuple(int(a+(b-a)*tv) for a,b in
-                        zip((55,42,26),(180,145,70))) if can else (35,26,14)
+            bc=tuple(int(a+(b-a)*tv) for a,b in
+                     zip((55,42,26),(180,145,70))) if can else (35,26,14)
             pygame.draw.rect(self.screen,bc,(rx,ry,row_w,row_h-6),2 if is_sel else 1)
-
-            # Colour dot
-            pygame.draw.circle(self.screen,opt["icon_col"],(rx+22,ry+(row_h-6)//2),10)
-
-            # Label
-            nc = (220,190,120) if (is_sel and can) else (140,110,65) if can else (75,58,35)
-            ns = self.font_medium.render(opt["label"],True,nc)
-            self.screen.blit(ns,(rx+42,ry+8))
-
-            # Detail
-            ds = self.font_tiny.render(opt["detail"],True,(100,78,45))
-            self.screen.blit(ds,(rx+42,ry+8+ns.get_height()+2))
-
-            # Cost
-            if opt["cost"] > 0:
-                cost_col = (220,185,50) if opt["afford"] else (120,70,40)
-                cs = self.font_medium.render(f"{opt['cost']}g",True,cost_col)
+            pygame.draw.circle(self.screen,opt["icon"],(rx+20,ry+(row_h-6)//2),9)
+            nc=(220,190,120) if (is_sel and can) else (140,110,65) if can else (75,58,35)
+            ns=self.font_medium.render(opt["label"],True,nc)
+            self.screen.blit(ns,(rx+38,ry+7))
+            ds=self.font_tiny.render(opt["detail"],True,(100,78,45))
+            self.screen.blit(ds,(rx+38,ry+7+ns.get_height()+2))
+            if opt["cost"]>0:
+                cs=self.font_medium.render(f"{opt['cost']}g",True,
+                    (220,185,50) if opt["afford"] else (120,70,40))
                 self.screen.blit(cs,(rx+row_w-cs.get_width()-10,
-                                      ry+(row_h-6)//2-cs.get_height()//2))
-            elif opt["label"] == "Leave":
-                es = self.font_tiny.render("free",True,(80,62,34))
+                                     ry+(row_h-6)//2-cs.get_height()//2))
+            elif opt["label"]=="Leave":
+                es=self.font_tiny.render("free",True,(80,62,34))
                 self.screen.blit(es,(rx+row_w-es.get_width()-10,
-                                      ry+(row_h-6)//2-es.get_height()//2))
-
-            # Arrow
+                                     ry+(row_h-6)//2-es.get_height()//2))
             if is_sel:
-                arr = self.font_small.render("▶",True,self.shop_color)
+                arr=self.font_small.render("▶",True,self.shop_color)
                 self.screen.blit(arr,(rx+2,ry+(row_h-6)//2-arr.get_height()//2))
+        self._draw_hp_bar(rx,start_y+len(options)*row_h+6,row_w)
+        hint=self.font_tiny.render("↑ ↓  select    ENTER  confirm    ESC  leave",
+                                    True,(70,54,28))
+        self.screen.blit(hint,(self.W//2-hint.get_width()//2,y+h-hint.get_height()-10))
 
-        # HP bar below options
-        self._draw_hp_bar(rx, start_y+len(options)*row_h+8, row_w)
-
-        # Hint
-        hint = self.font_tiny.render("↑ ↓  select    ENTER  confirm    ESC  leave",
-                                      True,(70,54,28))
-        self.screen.blit(hint,(self.W//2-hint.get_width()//2,y+h-hint.get_height()-12))
-
-    def _draw_message(self, x, y, w):
-        if not self._message or self._message_timer <= 0: return
-        alpha = min(1.0, self._message_timer/0.4)
-        col   = (120,200,120) if self._msg_good else (200,100,80)
-        ms  = self.font_small.render(self._message,True,col)
-        bg  = pygame.Surface((ms.get_width()+20,ms.get_height()+8),pygame.SRCALPHA)
+    def _draw_message(self):
+        if not self._message or self._message_timer<=0: return
+        alpha=min(1.0,self._message_timer/0.4)
+        col=(120,200,120) if self._msg_good else (200,100,80)
+        ms=self.font_small.render(self._message,True,col)
+        bg=pygame.Surface((ms.get_width()+20,ms.get_height()+8),pygame.SRCALPHA)
         bg.fill((14,10,6,int(210*alpha)))
-        bx  = self.W//2-bg.get_width()//2
-        by  = y-bg.get_height()-8
+        bx=self.W//2-bg.get_width()//2; by=80
         self.screen.blit(bg,(bx,by))
         pygame.draw.rect(self.screen,col,(bx,by,bg.get_width(),bg.get_height()),1)
         ms.set_alpha(int(255*alpha))
         self.screen.blit(ms,(bx+10,by+4))
 
-    # ------------------------------------------------------------------ #
-
     def _do_action(self, idx):
-        hp = self._player_hp(); mhp = self._player_max_hp()
-        gold = self._gold()
-        if idx == 0:   # Light rest
-            if hp >= mhp:
-                self._message = "You are already at full health!"; self._msg_good = False
-            elif gold < self.PARTIAL_COST:
-                self._message = f"Need {self.PARTIAL_COST} gold!"; self._msg_good = False
+        hp=self._player_hp(); mhp=self._player_max_hp(); gold=self._gold()
+        if idx==0:
+            if hp>=mhp:
+                self._message="You are already at full health!"; self._msg_good=False
+            elif gold<self.PARTIAL_COST:
+                self._message=f"Need {self.PARTIAL_COST} gold!"; self._msg_good=False
             else:
                 self._spend_gold(self.PARTIAL_COST)
-                healed = min(self.PARTIAL_HEAL, mhp-hp)
+                healed=min(self.PARTIAL_HEAL,mhp-hp)
+                self._play_rest_animation(full_rest=False)
                 self._set_hp(hp+healed)
-                self._message = f"You rest briefly. +{healed} HP  ({self._player_hp()}/{mhp})"
-                self._msg_good = True
-        elif idx == 1:  # Full rest
-            if hp >= mhp:
-                self._message = "You are already at full health!"; self._msg_good = False
-            elif gold < self.FULL_COST:
-                self._message = f"Need {self.FULL_COST} gold!"; self._msg_good = False
+                self._message=f"You rest briefly. +{healed} HP  ({self._player_hp()}/{mhp})"
+                self._msg_good=True
+                import random as _r; self._current_dialogue=_r.choice(self._dialogues)
+        elif idx==1:
+            if hp>=mhp:
+                self._message="You are already at full health!"; self._msg_good=False
+            elif gold<self.FULL_COST:
+                self._message=f"Need {self.FULL_COST} gold!"; self._msg_good=False
             else:
                 self._spend_gold(self.FULL_COST)
+                self._play_rest_animation(full_rest=True)
                 self._set_hp(mhp)
-                self._message = f"You sleep soundly. Full HP restored!  ({mhp}/{mhp})"
-                self._msg_good = True
-        elif idx == 2:  # Buy potion
-            if gold < self.POTION_COST:
-                self._message = f"Need {self.POTION_COST} gold!"; self._msg_good = False
+                self._message=f"You sleep soundly. Full HP restored!  ({mhp}/{mhp})"
+                self._msg_good=True
+                import random as _r; self._current_dialogue=_r.choice(self._dialogues)
+        elif idx==2:
+            if gold<self.POTION_COST:
+                self._message=f"Need {self.POTION_COST} gold!"; self._msg_good=False
             else:
                 from src.scenes.chest_scene import PotionItem
                 self._spend_gold(self.POTION_COST)
                 self.inventory.add(PotionItem())
-                self._message = "Bought a Healing Potion!"; self._msg_good = True
-        elif idx == 3:
+                self._message="Bought a Healing Potion!"; self._msg_good=True
+        elif idx==3:
             return "town"
-        self._message_timer = 2.5
+        self._message_timer=2.5
         return None
 
-    def run(self) -> str:
+    def _play_rest_animation(self, full_rest=False):
+        """Fade to black with Zzz, then fade back in."""
+        import math
+        W,H = self.W, self.H
+        clock = pygame.time.Clock()
+        font_big  = pygame.font.SysFont("courier new", 42, bold=True)
+        font_med  = pygame.font.SysFont("courier new", 22, bold=True)
+
+        # Capture current screen
+        snapshot = self.screen.copy()
+
+        zzz_positions = [
+            (W//2-20, H//2+20,  28, 0.0),
+            (W//2+10, H//2,     36, 0.4),
+            (W//2+40, H//2-30, 44, 0.8),
+        ]
+
+        total = 2.2 if not full_rest else 3.0
+        t = 0.0
+        while t < total:
+            dt = clock.tick(60)/1000.0
+            t += dt
+
+            # Phase: 0-0.6 fade out, 0.6-1.4 black hold with zzz, 1.4-2.2 fade in
+            if t < 0.6:
+                alpha = int(255 * (t/0.6))
+            elif t < total-0.6:
+                alpha = 255
+            else:
+                alpha = int(255 * ((total-t)/0.6))
+
+            self.screen.blit(snapshot,(0,0))
+
+            # Dark overlay
+            overlay = pygame.Surface((W,H))
+            overlay.fill((8,5,3))
+            overlay.set_alpha(alpha)
+            self.screen.blit(overlay,(0,0))
+
+            # Zzz letters during hold phase
+            if 0.5 < t < total-0.4:
+                hold_t = t - 0.5
+                for i,(zx,zy,zsize,zdelay) in enumerate(zzz_positions):
+                    age = hold_t - zdelay
+                    if age < 0: continue
+                    # Float upward and fade out over 1.2s, then loop
+                    cycle = age % 1.4
+                    if cycle > 1.2: continue
+                    a2 = int(255 * min(1.0, (1.0 - cycle/1.2)))
+                    rise = int(cycle * 40)
+                    zf = pygame.font.SysFont("courier new", zsize, bold=True)
+                    zs = zf.render("Z", True, (180,220,255))
+                    zs.set_alpha(a2)
+                    self.screen.blit(zs,(zx, zy-rise))
+
+            # "Resting..." or "Sleeping deeply..." text
+            if 0.7 < t < total-0.3:
+                fade_in = min(1.0,(t-0.7)/0.3)
+                fade_out = min(1.0,(total-0.3-t)/0.3)
+                ta = int(255*min(fade_in,fade_out))
+                msg = "Sleeping deeply..." if full_rest else "Resting..."
+                ms = font_med.render(msg, True, (160,185,220))
+                ms.set_alpha(ta)
+                self.screen.blit(ms,(W//2-ms.get_width()//2, H//2+60))
+
+            pygame.display.flip()
+
+    def run(self)->str:
         while True:
-            dt          = self.clock.tick(60)/1000.0
-            self.time  += dt
-            self.open_anim = min(self.open_anim+dt, self.OPEN_DUR)
-            t           = min(1.0, self.open_anim/self.OPEN_DUR)
-            self._message_timer = max(0.0, self._message_timer-dt)
+            dt=self.clock.tick(60)/1000.0
+            self.time+=dt
+            self.open_anim=min(self.open_anim+dt,self.OPEN_DUR)
+            ease=1-(1-min(1.0,self.open_anim/self.OPEN_DUR))**3
+            self._message_timer=max(0.0,self._message_timer-dt)
+            self._rumour_timer+=dt
+            if self._rumour_timer>=self.RUMOUR_DUR:
+                self._rumour_timer=0.0
+                self._rumour_idx=(self._rumour_idx+1)%len(self.RUMOURS)
 
             for event in pygame.event.get():
-                if event.type == pygame.QUIT: return "exit"
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE: return "town"
-                    if event.key == pygame.K_UP:
-                        self.selected = max(0,self.selected-1)
-                    if event.key == pygame.K_DOWN:
-                        self.selected = min(3,self.selected+1)
+                if event.type==pygame.QUIT: return "exit"
+                if event.type==pygame.KEYDOWN:
+                    if event.key==pygame.K_ESCAPE: return "town"
+                    if event.key==pygame.K_UP:   self.selected=max(0,self.selected-1)
+                    if event.key==pygame.K_DOWN: self.selected=min(3,self.selected+1)
                     if event.key in (pygame.K_RETURN,pygame.K_SPACE):
-                        result = self._do_action(self.selected)
+                        result=self._do_action(self.selected)
                         if result: return result
 
             self._draw_background()
-            px,py,pw,ph = self._draw_panel(t)
-            if t > 0.8:
-                self._draw_keeper(px+pw-90, py+50)
-                self._draw_options(px,py,pw,ph,t)
-                self._draw_message(px,py,pw)
+
+            # Full-screen panel
+            pw = int(self.W*0.88); ph = int(self.H*0.86)
+            px = self.W//2-pw//2;  py = self.H//2-ph//2
+
+            w2=int(pw*ease); h2=int(ph*ease)
+            px2=self.W//2-w2//2; py2=self.H//2-h2//2
+            if w2>4:
+                bg=pygame.Surface((w2,h2),pygame.SRCALPHA)
+                bg.fill((18,12,7,245))
+                self.screen.blit(bg,(px2,py2))
+                pygame.draw.rect(self.screen,self.shop_color,(px2,py2,w2,h2),2)
+                pygame.draw.rect(self.screen,tuple(max(0,v-40) for v in self.shop_color),
+                                 (px2+5,py2+5,w2-10,h2-10),1)
+                sz=14
+                for bx2,by2,dx,dy in [(px2,py2,1,1),(px2+w2,py2,-1,1),
+                                       (px2,py2+h2,1,-1),(px2+w2,py2+h2,-1,-1)]:
+                    pygame.draw.line(self.screen,(185,150,68),(bx2,by2),(bx2+dx*sz,by2),2)
+                    pygame.draw.line(self.screen,(185,150,68),(bx2,by2),(bx2,by2+dy*sz),2)
+
+            if ease>0.7:
+                # Title — centred at top
+                title=self.font_title.render("The Rusty Flagon",True,(215,180,105))
+                self.screen.blit(title,(self.W//2-title.get_width()//2, py+14))
+                pygame.draw.line(self.screen,self.shop_color,
+                                 (px+24,py+14+title.get_height()+6),
+                                 (px+pw-24,py+14+title.get_height()+6),1)
+
+                # Gold — top right
+                gold_s=self.font_medium.render(f"Gold: {self._gold()}",True,(220,185,60))
+                self.screen.blit(gold_s,(px+pw-gold_s.get_width()-18,py+16))
+
+                # Left column — menu options (takes 55% of width)
+                left_w = int(pw*0.55)
+                self._draw_options(px, py, left_w, ph, ease)
+
+                # Divider between columns
+                div_x = px + left_w
+                pygame.draw.line(self.screen,
+                                 tuple(max(0,v-30) for v in self.shop_color),
+                                 (div_x, py+40),(div_x, py+ph-20),1)
+
+                # Right column — innkeeper + rumour board
+                right_cx = div_x + (pw - left_w)//2
+
+                # Innkeeper — centred in right column, lower half
+                keeper_cx = right_cx
+                keeper_cy = py + ph*2//3
+                self._draw_keeper(keeper_cx, keeper_cy)
+                # Keeper name
+                kn=self.font_tiny.render("Borin, Innkeeper",True,(130,100,55))
+                self.screen.blit(kn,(keeper_cx-kn.get_width()//2, keeper_cy+95))
+                # Speech bubble above keeper
+                self._draw_dialogue_bubble(keeper_cx, keeper_cy-45)
+
+                # Rumour board — top of right column
+                board_x = div_x+12
+                board_w  = pw - left_w - 24
+                self._draw_rumour_board(board_x, py+48, board_w)
+
+            self._draw_message()
             pygame.display.flip()
 
 
