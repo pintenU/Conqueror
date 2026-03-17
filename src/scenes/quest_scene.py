@@ -7,20 +7,18 @@ def _lerp_col(a, b, t):
     return tuple(int(a[i]+(b[i]-a[i])*t) for i in range(3))
 
 
-# ---------------------------------------------------------------------------
-# Notice Board Scene — shown when pressing E at market area
-# (or called from town scene for the inn rumour board)
-# ---------------------------------------------------------------------------
+def _draw_leave_button(screen, rect, hover, font):
+    """Reusable smithy-style LEAVE button."""
+    bg = pygame.Surface((rect.w, rect.h), pygame.SRCALPHA)
+    bg.fill((int(18+30*hover), int(12+22*hover), int(7+14*hover), 200))
+    screen.blit(bg, rect.topleft)
+    def lc(a, b): return tuple(int(a[j]+(b[j]-a[j])*hover) for j in range(3))
+    pygame.draw.rect(screen, lc((60,44,24),(160,125,60)), rect, 2)
+    lbl = font.render("LEAVE", True, lc((120,90,45),(210,175,90)))
+    screen.blit(lbl, (rect.centerx-lbl.get_width()//2, rect.centery-lbl.get_height()//2))
+
 
 class NoticeBoardScene:
-    """
-    Full-screen notice board with:
-    - Available quests to accept (up to 4)
-    - Wanted posters for bosses
-    - Town notices / flavour text
-    Tabs: QUESTS | WANTED | NOTICES
-    """
-
     TOWN_NOTICES = [
         ("Inn Special",       "Rest at the Rusty Flagon — restored\nHP and rumours included. Borin's treat."),
         ("Dungeon Warning",   "Adventurers are advised to stock\npotions before entering. Many don't return."),
@@ -56,34 +54,38 @@ class NoticeBoardScene:
     ]
 
     def __init__(self, screen, quest_manager: QuestManager, game_state=None):
-        self.screen       = screen
-        self.W, self.H    = screen.get_size()
-        self.clock        = pygame.time.Clock()
-        self.time         = 0.0
-        self.qm           = quest_manager
-        self.game_state   = game_state
+        self.screen     = screen
+        self.W, self.H  = screen.get_size()
+        self.clock      = pygame.time.Clock()
+        self.time       = 0.0
+        self.qm         = quest_manager
+        self.game_state = game_state
 
         self.font_title  = pygame.font.SysFont("courier new", 26, bold=True)
         self.font_medium = pygame.font.SysFont("courier new", 16, bold=True)
         self.font_small  = pygame.font.SysFont("courier new", 13)
         self.font_tiny   = pygame.font.SysFont("courier new", 11)
+        self.font_large  = pygame.font.SysFont("courier new", 22, bold=True)
 
-        self.tab       = 0   # 0=quests, 1=wanted, 2=notices
+        self.tab       = 0
         self.selected  = 0
         self._hover    = [0.0]*3
+        self._leave_hover = 0.0
+        self._qlog_hover  = 0.0
         self.open_anim = 0.0
         self.OPEN_DUR  = 0.35
         self._msg      = ""
         self._msg_t    = 0.0
 
-    # ------------------------------------------------------------------ #
+        # Pre-bake background gradient
+        self._bg = self._make_bg()
 
-    def _draw_bg(self):
+    def _make_bg(self):
+        strip = pygame.Surface((1, self.H))
         for y in range(self.H):
             t = y/self.H
-            pygame.draw.line(self.screen,
-                             (int(10+12*t),int(7+8*t),int(4+5*t)),
-                             (0,y),(self.W,y))
+            strip.set_at((0,y),(int(10+12*t),int(7+8*t),int(4+5*t)))
+        return pygame.transform.scale(strip, (self.W, self.H))
 
     def _draw_panel(self, ease):
         pw=int(self.W*0.90); ph=int(self.H*0.88)
@@ -103,8 +105,10 @@ class NoticeBoardScene:
         return px,py,pw,ph
 
     def _draw_tabs(self, px, py, pw, ease):
+        # Tabs only span left portion — leave room for LEAVE button on right
         tabs=["QUESTS","WANTED","NOTICES"]
-        tw=pw//3
+        tab_area_w = pw - 140   # reserve 140px right for LEAVE button
+        tw = tab_area_w // 3
         for i,label in enumerate(tabs):
             tx=px+i*tw; ty=py+38
             is_sel=(i==self.tab)
@@ -118,9 +122,8 @@ class NoticeBoardScene:
             bc=(180,145,65) if is_sel else _lerp_col((55,42,22),(130,100,45),t)
             pygame.draw.rect(self.screen,bc,(tx+2,ty,tw-4,32),2 if is_sel else 1)
             ls=self.font_medium.render(label,True,
-                                       (220,190,120) if is_sel else _lerp_col((100,78,38),(180,148,75),t))
+                (220,190,120) if is_sel else _lerp_col((100,78,38),(180,148,75),t))
             self.screen.blit(ls,(tx+tw//2-ls.get_width()//2,ty+7))
-        # Underline selected
         pygame.draw.line(self.screen,(180,145,65),
                          (px+self.tab*tw+2,py+70),(px+(self.tab+1)*tw-2,py+70),2)
 
@@ -128,140 +131,91 @@ class NoticeBoardScene:
         available = self.qm.get_available()
         active_ids = {q["id"] for q in self.qm.active}
         slots_left = self.qm.MAX_ACTIVE - len(self.qm.active)
-
-        # Header
         sl=self.font_small.render(
-            f"Active: {len(self.qm.active)}/{self.qm.MAX_ACTIVE}    "
-            f"Slots remaining: {slots_left}",
+            f"Active: {len(self.qm.active)}/{self.qm.MAX_ACTIVE}    Slots remaining: {slots_left}",
             True,(140,110,55))
         self.screen.blit(sl,(px+16,py+78))
-
         if not available:
-            ns=self.font_medium.render("No quests available — check back later.",
-                                        True,(80,62,30))
+            ns=self.font_medium.render("No quests available — check back later.",True,(80,62,30))
             self.screen.blit(ns,(px+pw//2-ns.get_width()//2,py+ph//2))
             return
-
-        row_h=95; row_w=pw-32; start_y=py+98
-        mouse=pygame.mouse.get_pos()
+        row_h=95; row_w=pw-32; start_y=py+98; mouse=pygame.mouse.get_pos()
         for i,q in enumerate(available[:4]):
-            ry=start_y+i*row_h
-            is_sel=(i==self.selected)
+            ry=start_y+i*row_h; is_sel=(i==self.selected)
             hov=pygame.Rect(px+16,ry,row_w,row_h-6).collidepoint(mouse)
             t=1.0 if (is_sel or hov) else 0.0
-            already=q["id"] in active_ids
-            can=slots_left>0 and not already
-
+            already=q["id"] in active_ids; can=slots_left>0 and not already
             bg=pygame.Surface((row_w,row_h-6),pygame.SRCALPHA)
             bg.fill((int(22+22*t),int(15+15*t),int(9+9*t),220))
             self.screen.blit(bg,(px+16,ry))
             bc=_lerp_col((55,42,22),(160,128,55),t) if can else (35,26,14)
             pygame.draw.rect(self.screen,bc,(px+16,ry,row_w,row_h-6),2 if is_sel else 1)
-
-            # Difficulty stars
             diff_col=DIFFICULTY_COL.get(q["difficulty"],(150,150,150))
             ds=self.font_tiny.render(DIFFICULTY_STARS[q["difficulty"]],True,diff_col)
             self.screen.blit(ds,(px+20,ry+4))
-
-            # Title
             tc=(225,195,130) if can else (100,78,40)
             ts=self.font_medium.render(q["title"],True,tc)
             self.screen.blit(ts,(px+20,ry+18))
-
-            # Description
             desc_s=self.font_tiny.render(q["desc"],True,(140,110,58))
             self.screen.blit(desc_s,(px+20,ry+36))
-
-            # Flavour
             flav_s=self.font_tiny.render(f'"{q["flavour"]}"',True,(90,70,35))
             self.screen.blit(flav_s,(px+20,ry+50))
-
-            # Rewards
             rew=f"Reward: {q['reward_gold']}g  +{q['reward_exp']} EXP"
-            if q["reward_item"]:
-                rew += f"  +{q['reward_item'].replace('Item','')}"
+            if q["reward_item"]: rew+=f"  +{q['reward_item'].replace('Item','')}"
             rs=self.font_tiny.render(rew,True,(180,160,80))
             self.screen.blit(rs,(px+20,ry+64))
-
-            # Accept button / status
             if already:
                 st=self.font_tiny.render("[ ACTIVE ]",True,(80,160,80))
                 self.screen.blit(st,(px+row_w-st.get_width()-8,ry+34))
             elif can:
-                ab=self.font_small.render("[ ENTER ] Accept",True,
-                                           _lerp_col((100,80,35),(200,170,80),t))
+                ab=self.font_small.render("[ ENTER ] Accept",True,_lerp_col((100,80,35),(200,170,80),t))
                 self.screen.blit(ab,(px+row_w-ab.get_width()-8,ry+34))
             else:
                 st=self.font_tiny.render("[ FULL ]",True,(120,70,40))
                 self.screen.blit(st,(px+row_w-st.get_width()-8,ry+34))
-
             if is_sel:
                 arr=self.font_small.render("▶",True,(180,148,60))
                 self.screen.blit(arr,(px+4,ry+row_h//2-arr.get_height()//2))
-
-        hint=self.font_tiny.render("↑ ↓  select    ENTER  accept    ESC  back",
-                                    True,(70,54,28))
+        hint=self.font_tiny.render("↑ ↓  select    ENTER  accept    ESC  back",True,(70,54,28))
         self.screen.blit(hint,(self.W//2-hint.get_width()//2,py+ph-hint.get_height()-10))
 
     def _draw_wanted_tab(self, px, py, pw, ph):
-        completed = set(self.qm.completed)
-        bosses = self.WANTED_BOSSES
+        completed=set(self.qm.completed); bosses=self.WANTED_BOSSES
         col_w=(pw-32)//2; row_h=130; start_y=py+80
         for i,(bid,bname,bounty,bcol,bdesc) in enumerate(bosses):
-            cx=px+16+(i%2)*col_w
-            ry=start_y+(i//2)*row_h
+            cx=px+16+(i%2)*col_w; ry=start_y+(i//2)*row_h
             killed=any(q["target"]==bid and q["type"]=="kill_boss"
-                       for q in [{"target":bid,"type":"kill_boss"}]
-                       if bid in completed)
-
+                       for q in [{"target":bid,"type":"kill_boss"}] if bid in completed)
             bg=pygame.Surface((col_w-8,row_h-8),pygame.SRCALPHA)
-            bg.fill((22,15,9,210))
-            self.screen.blit(bg,(cx,ry))
+            bg.fill((22,15,9,210)); self.screen.blit(bg,(cx,ry))
             pygame.draw.rect(self.screen,bcol,(cx,ry,col_w-8,row_h-8),2)
-
-            # Portrait placeholder — coloured circle with initial
             pr=28
             pygame.draw.circle(self.screen,bcol,(cx+pr+8,ry+row_h//2-12),pr)
-            pygame.draw.circle(self.screen,tuple(max(0,c-60) for c in bcol),
-                               (cx+pr+8,ry+row_h//2-12),pr,2)
+            pygame.draw.circle(self.screen,tuple(max(0,c-60) for c in bcol),(cx+pr+8,ry+row_h//2-12),pr,2)
             init=self.font_medium.render(bname[0],True,(255,255,255))
-            self.screen.blit(init,(cx+pr+8-init.get_width()//2,
-                                   ry+row_h//2-12-init.get_height()//2))
-
-            # WANTED header
+            self.screen.blit(init,(cx+pr+8-init.get_width()//2,ry+row_h//2-12-init.get_height()//2))
             wh=self.font_tiny.render("— WANTED —",True,(200,60,40))
             self.screen.blit(wh,(cx+pr*2+20,ry+4))
-            # Name
             ns=self.font_medium.render(bname,True,bcol)
             self.screen.blit(ns,(cx+pr*2+20,ry+16))
-            # Desc lines
             for li,line in enumerate(bdesc.split("\n")[:3]):
                 ls=self.font_tiny.render(line,True,(140,110,55))
                 self.screen.blit(ls,(cx+pr*2+20,ry+34+li*12))
-            # Bounty
             bs=self.font_small.render(f"Bounty: {bounty}g",True,(220,185,50))
             self.screen.blit(bs,(cx+pr*2+20,ry+row_h-26))
-
-            # Deceased stamp
             if killed:
                 stamp=self.font_large.render("SLAIN",True,(180,40,40))
                 stamp.set_alpha(160)
-                self.screen.blit(stamp,(cx+col_w//2-stamp.get_width()//2,
-                                        ry+row_h//2-stamp.get_height()//2))
+                self.screen.blit(stamp,(cx+col_w//2-stamp.get_width()//2,ry+row_h//2-stamp.get_height()//2))
 
     def _draw_notices_tab(self, px, py, pw, ph):
         col_w=(pw-40)//2; row_h=105; start_y=py+80
         for i,(title,body) in enumerate(self.TOWN_NOTICES):
-            cx=px+16+(i%2)*col_w
-            ry=start_y+(i//2)*row_h
-
+            cx=px+16+(i%2)*col_w; ry=start_y+(i//2)*row_h
             bg=pygame.Surface((col_w-8,row_h-8),pygame.SRCALPHA)
-            bg.fill((20,14,8,215))
-            self.screen.blit(bg,(cx,ry))
+            bg.fill((20,14,8,215)); self.screen.blit(bg,(cx,ry))
             pygame.draw.rect(self.screen,(110,88,45),(cx,ry,col_w-8,row_h-8),1)
-            # Pin
             pygame.draw.circle(self.screen,(180,55,45),(cx+col_w//2-4,ry),5)
-
             ts=self.font_medium.render(title,True,(215,185,110))
             self.screen.blit(ts,(cx+8,ry+10))
             pygame.draw.line(self.screen,(90,70,35),(cx+6,ry+28),(cx+col_w-14,ry+28),1)
@@ -283,8 +237,6 @@ class NoticeBoardScene:
         ms.set_alpha(int(255*alpha))
         self.screen.blit(ms,(bx+10,by+4))
 
-    # ------------------------------------------------------------------ #
-
     def run(self) -> str:
         available_quests = self.qm.get_available()
         while True:
@@ -295,11 +247,23 @@ class NoticeBoardScene:
             self._msg_t=max(0.0,self._msg_t-dt)
             mouse=pygame.mouse.get_pos()
 
-            # Tab hover
+            pw=int(self.W*0.90); ph=int(self.H*0.88)
+            px=self.W//2-pw//2; py=self.H//2-ph//2
+            tab_area_w = pw - 140
+            tw = tab_area_w // 3
+
+            leave_rect = pygame.Rect(px+pw-116, py+10, 100, 28)
+            qlog_rect  = pygame.Rect(px+pw-116, py+44, 100, 28)
+
+            self._leave_hover += ((1.0 if leave_rect.collidepoint(mouse) else 0.0) - self._leave_hover)*10*dt
+            self._leave_hover  = max(0.0, min(1.0, self._leave_hover))
+            self._qlog_hover  += ((1.0 if qlog_rect.collidepoint(mouse) else 0.0) - self._qlog_hover)*10*dt
+            self._qlog_hover   = max(0.0, min(1.0, self._qlog_hover))
+
+            # Tab hover — use correct tw
             for i in range(3):
-                px2=self.W//2-int(self.W*0.90)//2+i*(int(self.W*0.90)//3)
-                tgt=1.0 if pygame.Rect(px2+2,self.H//2-int(self.H*0.88)//2+38,
-                                        int(self.W*0.90)//3-4,32).collidepoint(mouse) else 0.0
+                tx=px+i*tw; ty=py+38
+                tgt=1.0 if pygame.Rect(tx+2,ty,tw-4,32).collidepoint(mouse) else 0.0
                 self._hover[i]+=(tgt-self._hover[i])*10*dt
                 self._hover[i]=max(0.0,min(1.0,self._hover[i]))
 
@@ -308,8 +272,8 @@ class NoticeBoardScene:
                 if event.type==pygame.KEYDOWN:
                     if event.key==pygame.K_ESCAPE: return "back"
                     if event.key==pygame.K_q:
-                        result = QuestLogScene(self.screen, self.qm).run()
-                        if result == "exit": return "exit"
+                        result=QuestLogScene(self.screen,self.qm).run()
+                        if result=="exit": return "exit"
                     if event.key==pygame.K_LEFT:
                         self.tab=max(0,self.tab-1); self.selected=0
                     if event.key==pygame.K_RIGHT:
@@ -328,28 +292,17 @@ class NoticeBoardScene:
                             else:
                                 self._msg="Quest log is full! (3 max)"
                             self._msg_t=2.5
-
                 if event.type==pygame.MOUSEBUTTONDOWN and event.button==1:
-                    pw2=int(self.W*0.90)
-                    px2=self.W//2-pw2//2
-                    ph2=int(self.H*0.88)
-                    py2=self.H//2-ph2//2
+                    if leave_rect.collidepoint(mouse): return "back"
+                    if qlog_rect.collidepoint(mouse):
+                        result=QuestLogScene(self.screen,self.qm).run()
+                        if result=="exit": return "exit"
                     for i in range(3):
-                        tx=px2+i*(pw2//3)
-                        ty=self.H//2-ph2//2+38
-                        if pygame.Rect(tx+2,ty,pw2//3-4,32).collidepoint(mouse):
+                        tx=px+i*tw; ty=py+38
+                        if pygame.Rect(tx+2,ty,tw-4,32).collidepoint(mouse):
                             self.tab=i; self.selected=0
-                    # Quest log button click
-                    active_count2=len(self.qm.active)
-                    btn_txt2=self.font_small.render(
-                        f"[ Q ]  Quest Log  ({active_count2} active)",True,(80,160,80))
-                    bx5=px2+pw2-btn_txt2.get_width()-28
-                    by5=py2+ph2-btn_txt2.get_height()-16
-                    if pygame.Rect(bx5-8,by5-4,btn_txt2.get_width()+16,btn_txt2.get_height()+8).collidepoint(mouse):
-                        result2=QuestLogScene(self.screen,self.qm).run()
-                        if result2=="exit": return "exit"
 
-            self._draw_bg()
+            self.screen.blit(self._bg,(0,0))
             px3,py3,pw3,ph3=self._draw_panel(ease)
             if ease>0.5:
                 title=self.font_title.render("— NOTICE BOARD —",True,(215,180,105))
@@ -359,47 +312,65 @@ class NoticeBoardScene:
                 elif self.tab==1: self._draw_wanted_tab(px3,py3,pw3,ph3)
                 elif self.tab==2: self._draw_notices_tab(px3,py3,pw3,ph3)
 
-                # Quest log button bottom right
-                active_count = len(self.qm.active)
-                btn_col = (80,160,80) if active_count>0 else (80,62,30)
-                btn_txt = self.font_small.render(
-                    f"[ Q ]  Quest Log  ({active_count} active)",True,btn_col)
-                bx4=px3+pw3-btn_txt.get_width()-20; by4=py3+ph3-btn_txt.get_height()-12
-                bg4=pygame.Surface((btn_txt.get_width()+16,btn_txt.get_height()+8),pygame.SRCALPHA)
-                bg4.fill((12,8,4,int(180)))
-                self.screen.blit(bg4,(bx4-8,by4-4))
-                pygame.draw.rect(self.screen,btn_col,(bx4-8,by4-4,btn_txt.get_width()+16,btn_txt.get_height()+8),1)
-                self.screen.blit(btn_txt,(bx4,by4))
+                # LEAVE button — top right
+                _draw_leave_button(self.screen, leave_rect, self._leave_hover, self.font_small)
+
+                # Quest Log button — below LEAVE
+                active_count=len(self.qm.active)
+                ql_col_base=(55,90,48); ql_col_bright=(100,175,80)
+                h=self._qlog_hover
+                ql_bg=pygame.Surface((100,28),pygame.SRCALPHA)
+                ql_bg.fill((int(12+20*h),int(20+28*h),int(10+16*h),200))
+                self.screen.blit(ql_bg,qlog_rect.topleft)
+                def qlc(a,b): return tuple(int(a[j]+(b[j]-a[j])*h) for j in range(3))
+                pygame.draw.rect(self.screen,qlc(ql_col_base,ql_col_bright),qlog_rect,2)
+                ql_lbl=self.font_tiny.render(f"QUEST LOG ({active_count})",True,
+                    qlc((80,130,65),(180,230,140)))
+                self.screen.blit(ql_lbl,(qlog_rect.centerx-ql_lbl.get_width()//2,
+                                          qlog_rect.centery-ql_lbl.get_height()//2))
+
             self._draw_message()
             pygame.display.flip()
 
 
-# ---------------------------------------------------------------------------
-# Quest Log Scene — active quests overview
-# ---------------------------------------------------------------------------
-
 class QuestLogScene:
     def __init__(self, screen, quest_manager: QuestManager):
-        self.screen = screen
-        self.W,self.H = screen.get_size()
-        self.clock  = pygame.time.Clock()
-        self.time   = 0.0
-        self.qm     = quest_manager
-        self.selected = 0
-        self.open_anim = 0.0
+        self.screen=screen
+        self.W,self.H=screen.get_size()
+        self.clock=pygame.time.Clock()
+        self.time=0.0
+        self.qm=quest_manager
+        self.selected=0
+        self.open_anim=0.0
+        self._leave_hover=0.0
 
-        self.font_title  = pygame.font.SysFont("courier new", 26, bold=True)
-        self.font_medium = pygame.font.SysFont("courier new", 16, bold=True)
-        self.font_small  = pygame.font.SysFont("courier new", 13)
-        self.font_tiny   = pygame.font.SysFont("courier new", 11)
-        self.font_large  = pygame.font.SysFont("courier new", 22, bold=True)
+        self.font_title  = pygame.font.SysFont("courier new",26,bold=True)
+        self.font_medium = pygame.font.SysFont("courier new",16,bold=True)
+        self.font_small  = pygame.font.SysFont("courier new",13)
+        self.font_tiny   = pygame.font.SysFont("courier new",11)
+        self.font_large  = pygame.font.SysFont("courier new",22,bold=True)
 
-    def run(self) -> str:
+        # Pre-bake background gradient
+        strip=pygame.Surface((1,self.H))
+        for y in range(self.H):
+            t=y/self.H
+            strip.set_at((0,y),(int(8+14*t),int(5+9*t),int(3+6*t)))
+        self._bg=pygame.transform.scale(strip,(self.W,self.H))
+
+    def run(self)->str:
         while True:
             dt=self.clock.tick(60)/1000.0
             self.time+=dt
             self.open_anim=min(self.open_anim+dt,0.35)
             ease=1-(1-min(1.0,self.open_anim/0.35))**3
+            mouse=pygame.mouse.get_pos()
+
+            pw=int(self.W*0.82); ph=int(self.H*0.86)
+            px=self.W//2-pw//2; py=self.H//2-ph//2
+            leave_rect=pygame.Rect(px+pw-116,py+10,100,28)
+
+            self._leave_hover+=((1.0 if leave_rect.collidepoint(mouse) else 0.0)-self._leave_hover)*10*dt
+            self._leave_hover=max(0.0,min(1.0,self._leave_hover))
 
             for event in pygame.event.get():
                 if event.type==pygame.QUIT: return "exit"
@@ -413,16 +384,11 @@ class QuestLogScene:
                         if 0<=self.selected<len(self.qm.active):
                             self.qm.abandon(self.qm.active[self.selected]["id"])
                             self.selected=max(0,self.selected-1)
+                if event.type==pygame.MOUSEBUTTONDOWN and event.button==1:
+                    if leave_rect.collidepoint(mouse): return "back"
 
-            # Draw
-            for y in range(self.H):
-                t=y/self.H
-                pygame.draw.line(self.screen,(int(8+14*t),int(5+9*t),int(3+6*t)),(0,y),(self.W,y))
-
-            pw=int(self.W*0.82); ph=int(self.H*0.86)
-            px=self.W//2-pw//2; py=self.H//2-ph//2
-            w2=int(pw*ease); h2=int(ph*ease)
-            x2=self.W//2-w2//2; y2=self.H//2-h2//2
+            self.screen.blit(self._bg,(0,0))
+            w2=int(pw*ease); h2=int(ph*ease); x2=self.W//2-w2//2; y2=self.H//2-h2//2
             if w2>4:
                 bg=pygame.Surface((w2,h2),pygame.SRCALPHA)
                 bg.fill((14,10,6,248)); self.screen.blit(bg,(x2,y2))
@@ -437,51 +403,40 @@ class QuestLogScene:
                 self.screen.blit(title,(self.W//2-title.get_width()//2,py+12))
                 pygame.draw.line(self.screen,(130,100,48),(px+20,py+44),(px+pw-20,py+44),1)
 
-                # Completed count
                 cc=self.font_tiny.render(
                     f"Completed: {len(self.qm.completed)}    Active: {len(self.qm.active)}/{self.qm.MAX_ACTIVE}",
                     True,(100,78,38))
-                self.screen.blit(cc,(px+pw-cc.get_width()-16,py+14))
+                self.screen.blit(cc,(px+20,py+14))
+
+                # LEAVE button — top right
+                _draw_leave_button(self.screen,leave_rect,self._leave_hover,self.font_small)
 
                 if not self.qm.active:
-                    ns=self.font_medium.render("No active quests — visit the Notice Board!",
-                                                True,(80,62,30))
+                    ns=self.font_medium.render("No active quests — visit the Notice Board!",True,(80,62,30))
                     self.screen.blit(ns,(self.W//2-ns.get_width()//2,py+ph//2))
                 else:
                     row_h=110; start_y=py+55
                     for i,q in enumerate(self.qm.active):
-                        ry=start_y+i*row_h
-                        is_sel=(i==self.selected)
+                        ry=start_y+i*row_h; is_sel=(i==self.selected)
                         diff_col=DIFFICULTY_COL.get(q["difficulty"],(150,150,150))
                         row_w=pw-32
-
                         bg2=pygame.Surface((row_w,row_h-8),pygame.SRCALPHA)
-                        bg2.fill((int(20+20*(1 if is_sel else 0)),
-                                  int(14+14*(1 if is_sel else 0)),
-                                  int(8+8*(1 if is_sel else 0)),220))
+                        bg2.fill((int(20+20*(1 if is_sel else 0)),int(14+14*(1 if is_sel else 0)),int(8+8*(1 if is_sel else 0)),220))
                         self.screen.blit(bg2,(px+16,ry))
                         bc=(180,145,65) if is_sel else (55,42,22)
                         pygame.draw.rect(self.screen,bc,(px+16,ry,row_w,row_h-8),2 if is_sel else 1)
-
                         if is_sel:
                             arr=self.font_small.render("▶",True,(180,148,60))
                             self.screen.blit(arr,(px+4,ry+row_h//2-arr.get_height()//2))
-
-                        # Title + difficulty
                         ts2=self.font_medium.render(q["title"],True,(225,195,130))
                         self.screen.blit(ts2,(px+24,ry+8))
                         ds2=self.font_tiny.render(DIFFICULTY_STARS[q["difficulty"]],True,diff_col)
                         self.screen.blit(ds2,(px+24+ts2.get_width()+10,ry+10))
-
-                        # Description
                         desc_s2=self.font_small.render(q["desc"],True,(155,125,65))
                         self.screen.blit(desc_s2,(px+24,ry+28))
-
-                        # Progress bar
                         prog=q["progress"]; req=q["required"]
                         prog_frac=min(1.0,prog/req) if req>0 else 0
-                        bar_w=int(row_w*0.55); bar_h=12
-                        bx3=px+24; by3=ry+50
+                        bar_w=int(row_w*0.55); bar_h=12; bx3=px+24; by3=ry+50
                         pygame.draw.rect(self.screen,(30,22,14),(bx3,by3,bar_w,bar_h))
                         pygame.draw.rect(self.screen,(65,48,25),(bx3,by3,bar_w,bar_h),1)
                         if prog_frac>0:
@@ -489,21 +444,15 @@ class QuestLogScene:
                             pygame.draw.rect(self.screen,fill_col,(bx3,by3,int(bar_w*prog_frac),bar_h))
                         prog_s=self.font_tiny.render(f"{prog}/{req}",True,(160,140,80))
                         self.screen.blit(prog_s,(bx3+bar_w+8,by3))
-
-                        # Reward summary
                         rew=f"Reward: {q['reward_gold']}g  +{q['reward_exp']} EXP"
                         if q.get("reward_item"): rew+=f"  +{q['reward_item'].replace('Item','')}"
                         rs2=self.font_tiny.render(rew,True,(160,140,65))
                         self.screen.blit(rs2,(px+24,ry+68))
-
-                        # Complete indicator
                         if prog>=req:
-                            done=self.font_medium.render("✓ COMPLETE — return to notice board",
-                                                          True,(80,200,80))
+                            done=self.font_medium.render("✓ COMPLETE — return to notice board",True,(80,200,80))
                             self.screen.blit(done,(px+row_w-done.get_width()-8,ry+row_h-30))
 
-                hint=self.font_tiny.render("↑ ↓  select    DEL  abandon quest    ESC  back",
-                                            True,(70,54,28))
+                hint=self.font_tiny.render("↑ ↓  select    DEL  abandon    ESC / LEAVE  back",True,(70,54,28))
                 self.screen.blit(hint,(self.W//2-hint.get_width()//2,py+ph-hint.get_height()-10))
 
             pygame.display.flip()

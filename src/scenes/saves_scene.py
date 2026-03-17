@@ -15,20 +15,18 @@ def _lerp(a, b, t):
 
 
 def _draw_mini_town(surf, rx, ry, rw, rh, time):
-    """Small illustrated town scene."""
     rng = random.Random(42)
-    # Sky
-    for y in range(rh*2//3):
-        t = y/(rh*2//3)
+    # Sky gradient — 1px strip scaled up
+    half = rh*2//3
+    sky_strip = pygame.Surface((1, half))
+    for y in range(half):
+        t = y / max(1, half)
         c = _lerp((95,135,185),(155,195,220),t)
-        pygame.draw.line(surf,c,(rx,ry+y),(rx+rw,ry+y))
-    # Ground
-    for y in range(rh*2//3, rh):
-        t = (y-rh*2//3)/(rh//3)
-        c = _lerp((58,88,46),(40,62,32),t)
-        pygame.draw.line(surf,c,(rx,ry+y),(rx+rw,ry+y))
-    # Buildings
-    ground = ry + rh*2//3
+        sky_strip.set_at((0, y), c)
+    surf.blit(pygame.transform.scale(sky_strip, (rw, half)), (rx, ry))
+    # Ground — flat fill
+    pygame.draw.rect(surf, (49, 75, 37), (rx, ry+half, rw, rh-half))
+    ground = ry + half
     for i,(bx,bw,bh,bc) in enumerate([
         (rx+rw*0.12, rw*0.14, rh*0.38, (140,108,72)),
         (rx+rw*0.30, rw*0.18, rh*0.50, (125,95,60)),
@@ -40,62 +38,50 @@ def _draw_mini_town(surf, rx, ry, rw, rh, time):
         v = rng.randint(-8,8)
         pygame.draw.rect(surf,(bc[0]+v,bc[1]+v,bc[2]+v),(bx,by,bw,bh))
         rh2 = bh//3
-        pygame.draw.polygon(surf,(80+v,55+v,28+v),[
-            (bx-2,by),(bx+bw//2,by-rh2),(bx+bw+2,by)])
-        # Lit window
+        pygame.draw.polygon(surf,(80+v,55+v,28+v),[(bx-2,by),(bx+bw//2,by-rh2),(bx+bw+2,by)])
         pulse = 0.7+0.3*math.sin(time*1.5+i)
         wsurf = pygame.Surface((bw//3,bh//4),pygame.SRCALPHA)
         wsurf.fill((int(220*pulse),int(160*pulse),int(50*pulse),180))
         surf.blit(wsurf,(bx+bw//3,by+bh//4))
-    # Road
-    for y in range(ground, ry+rh):
-        v = rng.randint(-4,4)
-        pygame.draw.line(surf,(118+v,102+v,82+v),(rx,y),(rx+rw,y))
+    # Road — flat fill
+    pygame.draw.rect(surf, (110, 96, 76), (rx, ground, rw, ry+rh-ground))
 
 
 def _draw_mini_dungeon(surf, rx, ry, rw, rh, time):
-    """Small illustrated dungeon scene."""
-    # Dark background
+    # Dark background — flat fill + subtle gradient via scaled strip
+    dark_strip = pygame.Surface((1, rh))
     for y in range(rh):
         t = y/rh
         c = _lerp((20,14,8),(8,5,3),t)
-        pygame.draw.line(surf,c,(rx,ry+y),(rx+rw,ry+y))
-    # Stone floor
+        dark_strip.set_at((0, y), c)
+    surf.blit(pygame.transform.scale(dark_strip, (rw, rh)), (rx, ry))
+    # Stone floor — flat fill
     ground = ry+rh*3//4
-    for y in range(ground, ry+rh):
-        v = random.Random(y).randint(-4,4)
-        pygame.draw.line(surf,(55+v,44+v,30+v),(rx,y),(rx+rw,y))
+    pygame.draw.rect(surf, (51, 40, 27), (rx, ground, rw, ry+rh-ground))
     # Archway
     aw = rw//3; ax = rx+rw//2-aw//2; ay = ry+rh//8
     pygame.draw.rect(surf,(52,42,28),(ax-12,ay,12,rh//2+10))
     pygame.draw.rect(surf,(52,42,28),(ax+aw,ay,12,rh//2+10))
     pygame.draw.arc(surf,(52,42,28),(ax-12,ay-30,aw+24,60),0,math.pi,8)
-    # Void inside
     vsurf = pygame.Surface((aw,rh//2),pygame.SRCALPHA)
     vsurf.fill((3,2,1,240))
     surf.blit(vsurf,(ax,ay))
-    # Red glow
     pulse = 0.4+0.4*math.sin(time*2.2)
     gs = pygame.Surface((aw,30),pygame.SRCALPHA)
     r2 = max(0,min(255,int(150*pulse)))
     g2 = max(0,min(255,int(15*pulse)))
-    gs.fill((0,0,0,0))
     pygame.draw.ellipse(gs,(r2,g2,0),(0,0,aw,30))
     gs.set_alpha(int(80*pulse))
     surf.blit(gs,(ax,ay+rh//2-20))
-    # Torches
     for tx in [rx+rw//6, rx+rw*5//6]:
         pygame.draw.rect(surf,(80,62,35),(tx-3,ground-28,6,18))
         fp = 0.7+0.3*math.sin(time*3.5+tx)
-        pygame.draw.polygon(surf,(int(220*fp),int(120*fp),20),[
-            (tx-5,ground-28),(tx,ground-44),(tx+5,ground-28)])
-        # Torch glow
+        pygame.draw.polygon(surf,(int(220*fp),int(120*fp),20),
+            [(tx-5,ground-28),(tx,ground-44),(tx+5,ground-28)])
         gr = pygame.Surface((40,40),pygame.SRCALPHA)
-        gr.fill((0,0,0,0))
         pygame.draw.circle(gr,(int(180*fp),int(100*fp),20),(20,20),20)
         gr.set_alpha(int(40*fp))
         surf.blit(gr,(tx-20,ground-48))
-    # Skull decoration
     skx,sky = rx+rw//2, ry+rh//16
     pygame.draw.circle(surf,(160,148,130),(skx,sky),10)
     pygame.draw.circle(surf,(25,18,10),(skx,sky),10,1)
@@ -132,13 +118,12 @@ class SavesScene:
         self.open_anim = 0.0
         self.OPEN_DUR  = 0.4
 
-        # Card layout — 3 side by side
         pad       = 40
         total_gap = pad * (NUM_SLOTS+1)
         self.CARD_W = (self.W - total_gap) // NUM_SLOTS
         self.CARD_H = int(self.H * 0.72)
         self.CARD_Y = (self.H - self.CARD_H) // 2 + 20
-        self.MINI_H = int(self.CARD_H * 0.42)   # illustration height
+        self.MINI_H = int(self.CARD_H * 0.42)
 
         self._card_rects = []
         for i in range(NUM_SLOTS):
@@ -146,14 +131,14 @@ class SavesScene:
             self._card_rects.append(pygame.Rect(x, self.CARD_Y,
                                                 self.CARD_W, self.CARD_H))
 
-        # Find most recent slot
         self._latest_slot = self._find_latest()
-
-        # Pre-render mini scenes per slot (redrawn each frame for animation)
         self._mini_surfs = [
             pygame.Surface((self.CARD_W, self.MINI_H))
             for _ in range(NUM_SLOTS)
         ]
+
+        # Pre-bake vignette — avoid expensive circle loop every frame
+        self._vignette = self._make_vignette()
 
     def _find_latest(self):
         latest = None
@@ -164,6 +149,17 @@ class SavesScene:
                 latest_slot = i
         return latest_slot
 
+    def _make_vignette(self):
+        """Pre-bake the radial dark vignette as a surface."""
+        surf = pygame.Surface((self.W, self.H))
+        surf.fill((0, 0, 0))
+        vx, vy = self.W//2, self.H//2
+        mr = int(math.hypot(vx, vy))
+        for step in range(0, mr, 6):
+            r2 = max(0, min(255, int(40*(step/mr)**1.5)))
+            pygame.draw.circle(surf, (r2, r2, r2), (vx, vy), mr-step)
+        return surf
+
     # ------------------------------------------------------------------ #
     # Mini scene rendering
     # ------------------------------------------------------------------ #
@@ -173,14 +169,12 @@ class SavesScene:
         data = self.slots[slot_idx]
         if data is None:
             surf.fill((12, 9, 6))
-            # Empty pattern — subtle stone texture
             rng = random.Random(slot_idx*7)
             for _ in range(60):
                 x = rng.randint(0, self.CARD_W-4)
                 y = rng.randint(0, self.MINI_H-4)
                 v = rng.randint(-6,6)
                 pygame.draw.rect(surf,(22+v,16+v,10+v),(x,y,4,4))
-            # "Empty" text
             f = pygame.font.SysFont("courier new",14)
             es = f.render("— Empty —",True,(55,42,25))
             surf.blit(es,(self.CARD_W//2-es.get_width()//2,
@@ -203,17 +197,14 @@ class SavesScene:
 
         def lc(a,b): return tuple(int(a[j]+(b[j]-a[j])*t) for j in range(3))
 
-        # Shadow
         sh = pygame.Surface((rect.w+10,rect.h+10),pygame.SRCALPHA)
         sh.fill((0,0,0,int(80*alpha/255)))
         self.screen.blit(sh,(rect.x-5,rect.y+5))
 
-        # Card background
         bg = pygame.Surface((rect.w,rect.h),pygame.SRCALPHA)
         bg.fill((int(20+18*t),int(14+12*t),int(8+8*t),int(235*alpha/255)))
         self.screen.blit(bg,rect.topleft)
 
-        # Border — gold for selected, dimmer otherwise
         if is_sel:
             border = lc((120,92,45),(200,165,80))
         else:
@@ -223,14 +214,12 @@ class SavesScene:
                          tuple(max(0,c-40) for c in border),
                          rect.inflate(-6,-6),1)
 
-        # Corner accents
         sz = 12
         for bx,by,dx,dy in [(rect.x,rect.y,1,1),(rect.x+rect.w,rect.y,-1,1),
                              (rect.x,rect.y+rect.h,1,-1),(rect.x+rect.w,rect.y+rect.h,-1,-1)]:
             pygame.draw.line(self.screen,border,(bx,by),(bx+dx*sz,by),2)
             pygame.draw.line(self.screen,border,(bx,by),(bx,by+dy*sz),2)
 
-        # Slot number badge
         badge_col = lc((80,60,28),(148,115,50))
         badge_rect = pygame.Rect(rect.x+10,rect.y+10,32,32)
         pygame.draw.rect(self.screen,badge_col,badge_rect)
@@ -239,7 +228,6 @@ class SavesScene:
         self.screen.blit(sn,(badge_rect.centerx-sn.get_width()//2,
                               badge_rect.centery-sn.get_height()//2))
 
-        # "Latest" badge
         if is_latest:
             lb = self.font_tiny.render("LATEST",True,(80,160,80))
             lbg = pygame.Surface((lb.get_width()+10,lb.get_height()+4),pygame.SRCALPHA)
@@ -250,51 +238,42 @@ class SavesScene:
                              lb.get_width()+10,lb.get_height()+4),1)
             self.screen.blit(lb,(lx,rect.y+16))
 
-        # Mini illustration
         self._render_mini(i)
         mini_rect = pygame.Rect(rect.x, rect.y, rect.w, self.MINI_H)
-        # Clip mini surf to card width
         clip = pygame.Rect(0,0,rect.w,self.MINI_H)
         self.screen.blit(self._mini_surfs[i],mini_rect.topleft,clip)
-        # Bottom fade on illustration
         fade = pygame.Surface((rect.w,40),pygame.SRCALPHA)
         for fy in range(40):
             a2 = int(200*(fy/40)**1.5)
             pygame.draw.line(fade,(int(20+18*t),int(14+12*t),int(8+8*t),a2),
                              (0,fy),(rect.w,fy))
         self.screen.blit(fade,(rect.x,rect.y+self.MINI_H-40))
-        # Illustration border
         pygame.draw.rect(self.screen,border,mini_rect,1)
 
         content_y = rect.y + self.MINI_H + 10
 
         if data is None:
-            # Empty slot
             es = self.font_medium.render("Empty Slot",True,lc((55,42,22),(105,82,40)))
             self.screen.blit(es,(rect.centerx-es.get_width()//2, content_y+20))
             if self.mode in ("save","both") and self.game_state:
                 hint = self.font_tiny.render("Click to save here",True,lc((55,42,22),(90,70,35)))
                 self.screen.blit(hint,(rect.centerx-hint.get_width()//2,content_y+44))
         else:
-            # Location — big
             loc = data.current_location.replace("_"," ").title()
             loc_col = lc((80,130,180),(120,180,230)) if "dungeon" in loc.lower() \
                       else lc((70,145,90),(110,195,130))
             loc_s = self.font_medium.render(loc.upper(),True,loc_col)
             self.screen.blit(loc_s,(rect.centerx-loc_s.get_width()//2, content_y+6))
 
-            # Playtime — prominent
             pt = format_playtime(data.playtime_seconds)
             pt_s = self.font_medium.render(pt,True,lc((160,130,70),(215,180,100)))
             self.screen.blit(pt_s,(rect.centerx-pt_s.get_width()//2,
                                     content_y+6+loc_s.get_height()+4))
 
-            # Divider
             dy = content_y+6+loc_s.get_height()+pt_s.get_height()+10
             pygame.draw.line(self.screen,lc((45,34,18),(90,70,34)),
                              (rect.x+16,dy),(rect.right-16,dy),1)
 
-            # Stats grid
             stats = [
                 ("Enemies",  str(data.enemies_defeated)),
                 ("Quests",   str(data.quests_cleared)),
@@ -310,47 +289,57 @@ class SavesScene:
                 self.screen.blit(label_s,(sx-label_s.get_width()//2,
                                            sy+val_s.get_height()+1))
 
-            # Timestamp
             ts_s = self.font_tiny.render(data.save_time,True,lc((65,50,24),(100,78,38)))
             self.screen.blit(ts_s,(rect.centerx-ts_s.get_width()//2,
                                     rect.bottom-ts_s.get_height()-42))
 
-            # Action buttons
             self._draw_card_buttons(i, rect, data, lc, alpha)
 
-    def _draw_card_buttons(self, i, rect, data, lc, alpha):
-        bh2 = 28; bw2 = (rect.w-30)//2; gap = 10
-        by2 = rect.bottom - bh2 - 8
-        bx_left  = rect.x + 10
-        bx_right = rect.x + rect.w//2 + gap//2
+    def _build_button_layout(self, i):
+        """Return list of (label, rect) for a card's buttons. Single source of truth."""
+        rect = self._card_rects[i]
+        data = self.slots[i]
+        bh2  = 28; gap = 8
+        by2  = rect.bottom - bh2 - 8
 
-        buttons = []
+        labels = []
         if self.mode in ("save","both") and self.game_state:
-            buttons.append(("SAVE",   bx_left,  (70,110,55),(120,185,80)))
+            labels.append("SAVE")
         if self.mode in ("load","both") and data:
-            bx = bx_left if not buttons else bx_right
-            buttons.append(("LOAD",   bx,       (55,80,120),(80,130,200)))
+            labels.append("LOAD")
         if data:
-            bx = bx_right if len(buttons)==1 else bx_left + bw2 + gap
-            buttons.append(("DELETE", bx_right, (110,45,35),(200,70,50)))
+            labels.append("DELETE")
 
-        # If only save+load, space them evenly
-        if len(buttons) == 2:
-            buttons[0] = (buttons[0][0], bx_left,  buttons[0][2], buttons[0][3])
-            buttons[1] = (buttons[1][0], bx_right, buttons[1][2], buttons[1][3])
+        if not labels:
+            return []
 
+        total_w = rect.w - 20
+        bw2 = (total_w - gap*(len(labels)-1)) // len(labels)
+
+        result = []
+        for idx, label in enumerate(labels):
+            bx = rect.x + 10 + idx*(bw2+gap)
+            result.append((label, pygame.Rect(bx, by2, bw2, bh2)))
+        return result
+
+    def _draw_card_buttons(self, i, rect, data, lc, alpha):
+        COLOURS = {
+            "SAVE":   ((70,110,55),(120,185,80)),
+            "LOAD":   ((55,80,120),(80,130,200)),
+            "DELETE": ((110,45,35),(200,70,50)),
+        }
         mouse = pygame.mouse.get_pos()
-        for label, bx, ci, ch in buttons:
-            brect = pygame.Rect(bx, by2, bw2, bh2)
-            hov   = 1.0 if brect.collidepoint(mouse) else 0.0
-            def lc2(a,b): return tuple(int(a[j]+(b[j]-a[j])*hov) for j in range(3))
-            fill  = pygame.Surface((bw2,bh2),pygame.SRCALPHA)
-            fill.fill((int(12+18*hov),int(8+12*hov),int(5+8*hov),int(200*alpha/255)))
-            self.screen.blit(fill,brect.topleft)
-            pygame.draw.rect(self.screen,lc2(ci,ch),brect,2)
-            ls = self.font_tiny.render(label,True,lc2(ci,ch))
-            self.screen.blit(ls,(brect.centerx-ls.get_width()//2,
-                                  brect.centery-ls.get_height()//2))
+        for label, brect in self._build_button_layout(i):
+            ci, ch = COLOURS[label]
+            hov = 1.0 if brect.collidepoint(mouse) else 0.0
+            def lc2(a, b, h=hov): return tuple(int(a[j]+(b[j]-a[j])*h) for j in range(3))
+            fill = pygame.Surface((brect.w, brect.h), pygame.SRCALPHA)
+            fill.fill((int(12+18*hov), int(8+12*hov), int(5+8*hov), int(200*alpha/255)))
+            self.screen.blit(fill, brect.topleft)
+            pygame.draw.rect(self.screen, lc2(ci,ch), brect, 2)
+            ls = self.font_tiny.render(label, True, lc2(ci,ch))
+            self.screen.blit(ls, (brect.centerx-ls.get_width()//2,
+                                   brect.centery-ls.get_height()//2))
 
     # ------------------------------------------------------------------ #
     # Confirm delete overlay
@@ -358,7 +347,6 @@ class SavesScene:
 
     def _draw_confirm_delete(self):
         i    = self._confirm_delete
-        rect = self._card_rects[i]
         pw,ph = 340,120
         px = self.W//2-pw//2; py = self.H//2-ph//2
 
@@ -383,7 +371,7 @@ class SavesScene:
         ]:
             brect = pygame.Rect(bx2,py+ph-44,120,30)
             hov   = 1.0 if brect.collidepoint(mouse) else 0.0
-            def lc2(a,b): return tuple(int(a[j]+(b[j]-a[j])*hov) for j in range(3))
+            def lc2(a,b,h=hov): return tuple(int(a[j]+(b[j]-a[j])*h) for j in range(3))
             fill  = pygame.Surface((120,30),pygame.SRCALPHA)
             fill.fill((int(12+18*hov),int(8+12*hov),int(5+8*hov),200))
             self.screen.blit(fill,brect.topleft)
@@ -404,34 +392,6 @@ class SavesScene:
         pygame.draw.rect(self.screen,(120,95,45),(bx,by,bg.get_width(),bg.get_height()),1)
         ms.set_alpha(int(255*alpha))
         self.screen.blit(ms,(bx+10,by+4))
-
-    # ------------------------------------------------------------------ #
-    # Hit testing
-    # ------------------------------------------------------------------ #
-
-    def _card_button_hit(self, pos, i):
-        rect = self._card_rects[i]
-        data = self.slots[i]
-        bh2  = 28; bw2 = (rect.w-30)//2; gap = 10
-        by2  = rect.bottom - bh2 - 8
-
-        buttons = []
-        if self.mode in ("save","both") and self.game_state:
-            buttons.append(("SAVE",   rect.x+10))
-        if self.mode in ("load","both") and data:
-            bx = rect.x+10 if not buttons else rect.x+rect.w//2+gap//2
-            buttons.append(("LOAD",   bx))
-        if data:
-            buttons.append(("DELETE", rect.x+rect.w//2+gap//2))
-
-        if len(buttons)==2:
-            buttons[0] = (buttons[0][0], rect.x+10)
-            buttons[1] = (buttons[1][0], rect.x+rect.w//2+gap//2)
-
-        for label,bx in buttons:
-            if pygame.Rect(bx,by2,bw2,bh2).collidepoint(pos):
-                return label
-        return None
 
     # ------------------------------------------------------------------ #
     # Actions
@@ -468,7 +428,6 @@ class SavesScene:
             self._message_timer = max(0.0,self._message_timer-dt)
             mouse       = pygame.mouse.get_pos()
 
-            # Hover
             for i,rect in enumerate(self._card_rects):
                 tgt = 1.0 if rect.collidepoint(mouse) else 0.0
                 self._hover[i] += (tgt-self._hover[i])*8*dt
@@ -488,6 +447,10 @@ class SavesScene:
                             self.selected = max(0,self.selected-1)
                         if event.key == pygame.K_RIGHT:
                             self.selected = min(NUM_SLOTS-1,self.selected+1)
+                        if event.key == pygame.K_DELETE:
+                            # D key or Delete key triggers confirm on selected slot
+                            if self.slots[self.selected]:
+                                self._confirm_delete = self.selected
                         if event.key in (pygame.K_RETURN,pygame.K_SPACE):
                             i = self.selected
                             data = self.slots[i]
@@ -511,42 +474,38 @@ class SavesScene:
                     for i,rect in enumerate(self._card_rects):
                         if not rect.collidepoint(mouse): continue
                         self.selected = i
-                        action = self._card_button_hit(mouse,i)
-                        if action == "SAVE":
+                        # Check button hits using the same layout as drawing
+                        hit = None
+                        for label, brect in self._build_button_layout(i):
+                            if brect.collidepoint(mouse):
+                                hit = label
+                                break
+                        if hit == "SAVE":
                             self._do_save(i)
-                        elif action == "LOAD":
+                        elif hit == "LOAD":
                             data = self.slots[i]
-                            if data: return ("loaded",data)
-                        elif action == "DELETE":
+                            if data: return ("loaded", data)
+                        elif hit == "DELETE":
                             self._confirm_delete = i
                         elif self.slots[i] is None:
-                            # Click on empty card — save here if in save mode
                             if self.mode in ("save","both") and self.game_state:
                                 self._do_save(i)
 
             # Draw
             self.screen.fill((8,6,4))
+            self.screen.blit(self._vignette, (0, 0))
 
-            # Background vignette
-            vx,vy = self.W//2,self.H//2
-            mr = int(math.hypot(vx,vy))
-            for step in range(0,mr,6):
-                r2 = max(0,min(255,int(40*(step/mr)**1.5)))
-                pygame.draw.circle(self.screen,(r2,r2,r2),(vx,vy),mr-step)
-
-            # Title
             title = self.font_title.render("— SAVES —",True,
                                             (int(210*ease),int(178*ease),int(100*ease)))
             self.screen.blit(title,(self.W//2-title.get_width()//2,
                                      self.CARD_Y-title.get_height()-18))
 
-            # Cards
             for i in range(NUM_SLOTS):
                 self._draw_card(i, alpha)
 
-            # Hint
-            mode_hint = "ENTER  save    ←→  select    ESC  back" if self.mode in ("save","both") \
-                        else "ENTER  load    ←→  select    ESC  back"
+            mode_hint = "ENTER  save    ←→  select    DEL  delete    ESC  back" \
+                        if self.mode in ("save","both") \
+                        else "ENTER  load    ←→  select    DEL  delete    ESC  back"
             hs = self.font_tiny.render(mode_hint,True,
                                         (int(70*ease),int(54*ease),int(28*ease)))
             self.screen.blit(hs,(self.W//2-hs.get_width()//2,

@@ -9,9 +9,25 @@ import random
 
 class Item:
     def __init__(self, name, description, icon_color):
-        self.name        = name
-        self.description = description
-        self.icon_color  = icon_color
+        self._name        = name
+        self._description = description
+        self.icon_color   = icon_color
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
+
+    @property
+    def description(self):
+        return self._description
+
+    @description.setter
+    def description(self, value):
+        self._description = value
 
     def draw_icon(self, surface, cx, cy, size):
         pygame.draw.rect(surface, self.icon_color,
@@ -98,6 +114,48 @@ class SwordItem(Item):
 
 # ---------------------------------------------------------------------------
 
+class StickItem(Item):
+    WEAPON_NAMES  = ["Stick", "Sharpened Stick", "Crude Club", "Iron Club", "War Club", "Champion's Mace"]
+    DAMAGE_VALUES = [2,        4,                  6,            8,           11,          15]
+
+    def __init__(self):
+        super().__init__("Stick",
+                         "A gnarled wooden stick. Better than nothing.",
+                         (139, 100, 60))
+        self.upgrade_level = 0
+
+    @property
+    def name(self):
+        return self.WEAPON_NAMES[min(self.upgrade_level, 5)]
+
+    @property
+    def description(self):
+        dmg = self.DAMAGE_VALUES[min(self.upgrade_level, 5)]
+        return f"A weapon forged through hardship. Deals {dmg} damage."
+
+    def draw_icon(self, surface, cx, cy, size):
+        s = size
+        # Stick / club shape — diagonal line with a knob at the top
+        pygame.draw.line(surface, (100, 70, 35),
+                         (cx - s//3, cy + s//3), (cx + s//3, cy - s//3), 5)
+        pygame.draw.line(surface, (160, 115, 60),
+                         (cx - s//3 + 2, cy + s//3 - 2), (cx + s//3 - 2, cy - s//3 + 2), 3)
+        # Knob at the striking end
+        pygame.draw.circle(surface, (120, 82, 40),
+                           (cx + s//3, cy - s//3), s//7 + 1)
+        pygame.draw.circle(surface, (170, 125, 65),
+                           (cx + s//3, cy - s//3), s//7)
+        # Grip wrap lines
+        for i in range(2):
+            ox = -s//4 + i * (s//8)
+            oy =  s//4 - i * (s//8)
+            pygame.draw.line(surface, (80, 52, 22),
+                             (cx + ox - 4, cy + oy - 2),
+                             (cx + ox + 4, cy + oy + 2), 2)
+
+
+# ---------------------------------------------------------------------------
+
 class SunSwordItem(Item):
     def __init__(self):
         super().__init__("Sun Sword",
@@ -136,7 +194,6 @@ class ShieldItem(Item):
     def draw_icon(self, surface, cx, cy, size):
         s  = size
         hw = s // 2 - 2
-        # Shield shape
         pts = [
             (cx - hw,     cy - hw + 4),
             (cx,          cy - hw - 4),
@@ -147,14 +204,10 @@ class ShieldItem(Item):
         ]
         pygame.draw.polygon(surface, (80, 105, 130), pts)
         pygame.draw.polygon(surface, (140, 170, 200), pts, 2)
-        # Boss (centre stud)
         pygame.draw.circle(surface, (160, 185, 210), (cx, cy), s//6)
         pygame.draw.circle(surface, (100, 130, 160), (cx, cy), s//6, 1)
-        # Cross detail
         pygame.draw.line(surface, (110,140,170),(cx,cy-s//4),(cx,cy+s//4),2)
         pygame.draw.line(surface, (110,140,170),(cx-s//4,cy),(cx+s//4,cy),2)
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +222,6 @@ class GoldItem(Item):
 
     def draw_icon(self, surface, cx, cy, size):
         s = size
-        # Stack of coins
         for i in range(3):
             oy = i * 4
             pygame.draw.ellipse(surface, (180,145,25),
@@ -182,6 +234,40 @@ class GoldItem(Item):
 
 # ---------------------------------------------------------------------------
 
+class IronIngotItem(Item):
+    def __init__(self):
+        super().__init__("Iron Ingot",
+                         "A solid iron ingot. Used for upgrading weapons and armour.",
+                         (160, 165, 175))
+        self.stackable = True
+        self.amount    = 1
+
+    def draw_icon(self, surface, cx, cy, size):
+        s  = size
+        hw = s // 2
+        # Ingot trapezoid shape
+        pts = [
+            (cx - hw + 4,  cy - s//5),
+            (cx + hw - 4,  cy - s//5),
+            (cx + hw,      cy + s//5),
+            (cx - hw,      cy + s//5),
+        ]
+        pygame.draw.polygon(surface, (120, 125, 135), pts)
+        pygame.draw.polygon(surface, (180, 185, 200), pts, 2)
+        # Shine line
+        pygame.draw.line(surface, (210, 215, 230),
+                         (cx - hw + 8, cy - s//6),
+                         (cx + hw - 8, cy - s//6), 2)
+        # Side face
+        side_pts = [
+            (cx + hw - 4, cy - s//5),
+            (cx + hw,     cy + s//5),
+            (cx + hw + 4, cy + s//5 + 4),
+            (cx + hw,     cy - s//5 + 4),
+        ]
+        pygame.draw.polygon(surface, (90, 95, 105), side_pts)
+
+
 class KeyItem(Item):
     def __init__(self, key_id: str = "key_1"):
         self.key_id = key_id
@@ -191,22 +277,18 @@ class KeyItem(Item):
 
     def draw_icon(self, surface, cx, cy, size):
         s  = size
-        # Key bow (circle)
         pygame.draw.circle(surface, (140,115,50), (cx-s//4, cy-s//5), s//5+1)
         pygame.draw.circle(surface, (180,150,65), (cx-s//4, cy-s//5), s//5)
         pygame.draw.circle(surface, (60,48,20),   (cx-s//4, cy-s//5), s//8)
-        # Key shaft
         pygame.draw.line(surface, (160,130,55),
                          (cx-s//4+s//5, cy-s//5),
                          (cx+s//3,      cy-s//5), 4)
-        # Key teeth
         pygame.draw.line(surface, (160,130,55),
                          (cx+s//5,  cy-s//5),
                          (cx+s//5,  cy-s//5+s//6), 3)
         pygame.draw.line(surface, (160,130,55),
                          (cx+s//3,  cy-s//5),
                          (cx+s//3,  cy-s//5+s//8), 3)
-
 
 
 # ---------------------------------------------------------------------------
@@ -220,11 +302,9 @@ class ExitKeyItem(Item):
 
     def draw_icon(self, surface, cx, cy, size):
         s  = size
-        # Large ornate key
         pygame.draw.circle(surface, (180,150,45), (cx-s//4, cy-s//5), s//4+1)
         pygame.draw.circle(surface, (220,185,65), (cx-s//4, cy-s//5), s//4)
         pygame.draw.circle(surface, (80,60,15),   (cx-s//4, cy-s//5), s//8)
-        # Sun detail on bow
         for a in range(0,360,60):
             r2 = math.radians(a)
             rx = int(math.cos(r2)*(s//4+3))
@@ -233,11 +313,9 @@ class ExitKeyItem(Item):
                              (cx-s//4+int(math.cos(r2)*s//5),
                               cy-s//5+int(math.sin(r2)*s//5)),
                              (cx-s//4+rx, cy-s//5+ry), 1)
-        # Shaft
         pygame.draw.line(surface,(200,165,55),
                          (cx-s//4+s//4, cy-s//5),
                          (cx+s//3,      cy-s//5), 4)
-        # Teeth
         pygame.draw.line(surface,(200,165,55),
                          (cx+s//8,  cy-s//5),
                          (cx+s//8,  cy-s//5+s//5), 3)
@@ -246,15 +324,14 @@ class ExitKeyItem(Item):
                          (cx+s//3,  cy-s//5+s//7), 3)
 
 
-
 # ===========================================================================
 # Armour items
 # ===========================================================================
 
 class ArmourItem(Item):
     """Base class for all armour pieces."""
-    slot        = "none"    # helmet / chestplate / leggings / boots
-    defence     = 0         # damage reduction per hit
+    slot        = "none"
+    defence     = 0
     stackable   = False
     material    = "iron"
 
@@ -274,15 +351,11 @@ class IronHelmet(ArmourItem):
     def draw_icon(self, surface, cx, cy, size):
         s  = size
         hw = s//2
-        # Dome
         pygame.draw.ellipse(surface,(130,140,155),(cx-hw,cy-hw,hw*2,hw))
         pygame.draw.ellipse(surface,(160,170,185),(cx-hw,cy-hw,hw*2,hw),2)
-        # Brim
         pygame.draw.rect(surface,(130,140,155),(cx-hw-4,cy-4,hw*2+8,8))
         pygame.draw.rect(surface,(160,170,185),(cx-hw-4,cy-4,hw*2+8,8),2)
-        # Visor slit
         pygame.draw.rect(surface,(50,55,65),(cx-hw+4,cy-6,hw*2-8,4))
-        # Cheek guards
         pygame.draw.rect(surface,(130,140,155),(cx-hw,cy-4,8,s//3))
         pygame.draw.rect(surface,(130,140,155),(cx+hw-8,cy-4,8,s//3))
 
@@ -296,18 +369,14 @@ class IronChestplate(ArmourItem):
     def draw_icon(self, surface, cx, cy, size):
         s  = size
         hw = s//2
-        # Body plate
         pts = [(cx-hw+4, cy-hw+4),(cx-hw,cy-4),(cx-hw,cy+hw-2),
                (cx+hw,cy+hw-2),(cx+hw,cy-4),(cx+hw-4,cy-hw+4)]
         pygame.draw.polygon(surface,(120,130,145),pts)
         pygame.draw.polygon(surface,(155,165,180),pts,2)
-        # Shoulder pads
         for ox2 in [-hw-2, hw-6]:
             pygame.draw.ellipse(surface,(130,140,155),(cx+ox2,cy-hw,10,12))
             pygame.draw.ellipse(surface,(155,165,180),(cx+ox2,cy-hw,10,12),1)
-        # Centre line
         pygame.draw.line(surface,(100,110,125),(cx,cy-hw+6),(cx,cy+hw-4),2)
-        # Horizontal bands
         for dy in [-s//6, s//6]:
             pygame.draw.line(surface,(100,110,125),(cx-hw+2,cy+dy),(cx+hw-2,cy+dy),1)
 
@@ -321,16 +390,12 @@ class IronLeggings(ArmourItem):
     def draw_icon(self, surface, cx, cy, size):
         s  = size
         hw = s//2
-        # Waist band
         pygame.draw.rect(surface,(120,130,145),(cx-hw,cy-hw,hw*2,s//5))
         pygame.draw.rect(surface,(150,160,175),(cx-hw,cy-hw,hw*2,s//5),2)
-        # Left leg
         pygame.draw.rect(surface,(115,125,140),(cx-hw,cy-hw+s//5,hw-2,s*2//3))
         pygame.draw.rect(surface,(145,155,170),(cx-hw,cy-hw+s//5,hw-2,s*2//3),2)
-        # Right leg
         pygame.draw.rect(surface,(115,125,140),(cx+2,cy-hw+s//5,hw-2,s*2//3))
         pygame.draw.rect(surface,(145,155,170),(cx+2,cy-hw+s//5,hw-2,s*2//3),2)
-        # Knee plates
         for lx in [cx-hw+2, cx+2]:
             pygame.draw.rect(surface,(140,150,165),(lx,cy,hw-4,s//6))
             pygame.draw.rect(surface,(155,165,180),(lx,cy,hw-4,s//6),1)
@@ -347,15 +412,12 @@ class IronBoots(ArmourItem):
         hw = s//2
         for ox2, flip in [(-hw//2-2, -1), (2, 1)]:
             bx = cx + ox2
-            # Ankle
             pygame.draw.rect(surface,(115,125,140),(bx,cy-s//3,hw//2+2,s//3))
             pygame.draw.rect(surface,(145,155,170),(bx,cy-s//3,hw//2+2,s//3),2)
-            # Foot (extends to one side)
             foot_w = hw//2+6
             foot_x = bx if flip==1 else bx-4
             pygame.draw.rect(surface,(120,130,145),(foot_x,cy,foot_w,s//4))
             pygame.draw.rect(surface,(145,155,170),(foot_x,cy,foot_w,s//4),2)
-            # Toe cap
             pygame.draw.ellipse(surface,(130,140,155),
                                 (foot_x+foot_w-8,cy-2,10,s//4+4))
 
@@ -400,7 +462,6 @@ class ItemSlot:
         if self.item:
             icon_size = int(self.rect.w * 0.52)
             if taken:
-                # Draw faded
                 ghost = pygame.Surface((self.rect.w, self.rect.h), pygame.SRCALPHA)
                 self.item.draw_icon(ghost, self.rect.w//2, self.rect.h//2, icon_size)
                 ghost.set_alpha(60)
@@ -496,7 +557,6 @@ class ChestScene:
         for i, item in enumerate(self.items[:len(self.slots)]):
             self.slots[i].item = item
 
-        # Take buttons — one per slot
         self.take_btns = []
         bw, bh = self.slot_size, 28
         for slot in self.slots:
@@ -505,7 +565,6 @@ class ChestScene:
                              bw, bh)
             self.take_btns.append(btn)
 
-        # Close button
         cw, ch = 180, 44
         self.close_rect   = pygame.Rect(
             self.panel_x + self.panel_w//2 - cw//2,
@@ -623,15 +682,12 @@ class ChestScene:
         """Remove taken items from chest and mark opened if all gone."""
         if self.chest is None:
             return
-        # Remove items that were taken
         remaining = [item for i, item in enumerate(self.chest.items)
                      if i < len(self.taken) and not self.taken[i]]
         self.chest.items = remaining
-        # Mark as opened (lid stays open) if all items taken
         if not remaining:
             self.chest.opened = True
         else:
-            # Partially looted — show as opened but still interactable
             self.chest.opened = False
 
     def run(self) -> str:

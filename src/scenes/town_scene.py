@@ -120,22 +120,28 @@ def _lerp_col(a, b, t):
 
 
 def _draw_sky(surf, W, H, sky_top, sky_bot, ground_col):
-    for y in range(H//2):
-        t = y / (H//2)
+    # Build gradient as a tiny 1-pixel-wide strip then scale — much faster than per-line draws
+    half = H // 2
+    sky_strip = pygame.Surface((1, half))
+    for y in range(half):
+        t = y / half
         c = _lerp_col(sky_top, sky_bot, t)
-        pygame.draw.line(surf, c, (0,y), (W,y))
-    for y in range(H//2, H):
-        t = (y-H//2)/(H//2)
-        c = _lerp_col(ground_col, tuple(max(0,v-15) for v in ground_col), t)
-        pygame.draw.line(surf, c, (0,y), (W,y))
+        sky_strip.set_at((0, y), c)
+    surf.blit(pygame.transform.scale(sky_strip, (W, half)), (0, 0))
+
+    ground_dark = tuple(max(0, v-15) for v in ground_col)
+    gnd_strip = pygame.Surface((1, H - half))
+    for y in range(H - half):
+        t = y / max(1, H - half)
+        c = _lerp_col(ground_col, ground_dark, t)
+        gnd_strip.set_at((0, y), c)
+    surf.blit(pygame.transform.scale(gnd_strip, (W, H - half)), (0, half))
 
 
 def _draw_stone_road(surf, W, H, rng):
-    """Cobblestone road running along the bottom third."""
     ry = H*2//3
-    for y in range(ry, H):
-        v = rng.randint(-6,6)
-        pygame.draw.line(surf,(120+v,105+v,85+v),(0,y),(W,y))
+    # Fill road base with a flat colour then add cobble rects — no per-pixel lines
+    pygame.draw.rect(surf, (118, 103, 83), (0, ry, W, H - ry))
     for row in range(5):
         for col in range(12):
             x = col*(W//12) + rng.randint(-4,4)
@@ -156,57 +162,160 @@ def _draw_tree(surf, tx, ty, rng, size=1.0):
 
 
 def _bg_gate(surf, W, H, rng, time):
-    _draw_sky(surf,W,H,(95,135,185),(155,195,220),(58,85,45))
+    _draw_sky(surf,W,H,(88,128,178),(148,188,215),(55,82,42))
     _draw_stone_road(surf,W,H,rng)
-    # Distant hills
-    for hx,hw,hh,hc in [(W//4,220,80,(52,82,42)),(W*3//4,200,70,(48,76,38))]:
-        pygame.draw.ellipse(surf,hc,(hx-hw//2,H//2-hh,hw,hh*2))
-    # Gate posts
-    for gx in [W//2-80, W//2+50]:
-        pygame.draw.rect(surf,(115,95,68),(gx,H//2-120,50,150))
-        pygame.draw.rect(surf,(85,68,45),(gx,H//2-120,50,150),2)
-        for bx in range(gx,gx+50,12):
-            pygame.draw.rect(surf,(115,95,68),(bx,H//2-132,10,16))
-    # Arch
-    pygame.draw.arc(surf,(115,95,68),
-                    (W//2-80,H//2-180,180,120),0,math.pi,10)
-    # Road out
-    pygame.draw.polygon(surf,(100,88,65),[
-        (W//2-30,H*2//3),(W//2+30,H*2//3),
-        (W//2+60,H),(W//2-60,H)])
-    # Trees flanking
-    for tx in [W//2-160,W//2+130]:
-        _draw_tree(surf,tx,H//2-20,rng,1.2)
+
+    ground = H*2//3
+
+    # Distant rolling hills
+    for hx2,hw2,hh2,hc in [(W//5,280,90,(48,78,38)),(W*4//5,260,80,(44,72,34)),
+                             (W//2-60,200,60,(52,84,42))]:
+        pygame.draw.ellipse(surf,hc,(hx2-hw2//2,ground-hh2,hw2,hh2*2))
+
+    # Town wall extending left and right from gate — crenellated
+    wall_h = 55; wall_y = ground - wall_h
+    # Left wall section
+    pygame.draw.rect(surf,(118,98,70),(0, wall_y, W//2-82, wall_h))
+    pygame.draw.rect(surf,(88,70,48),(0, wall_y, W//2-82, wall_h), 2)
+    for bx2 in range(0, W//2-82, 20):
+        pygame.draw.rect(surf,(118,98,70),(bx2, wall_y-16, 14, 18))
+        pygame.draw.rect(surf,(88,70,48),(bx2, wall_y-16, 14, 18), 1)
+    # Right wall section
+    pygame.draw.rect(surf,(118,98,70),(W//2+82, wall_y, W-W//2-82, wall_h))
+    pygame.draw.rect(surf,(88,70,48),(W//2+82, wall_y, W-W//2-82, wall_h), 2)
+    for bx2 in range(W//2+82, W, 20):
+        pygame.draw.rect(surf,(118,98,70),(bx2, wall_y-16, 14, 18))
+        pygame.draw.rect(surf,(88,70,48),(bx2, wall_y-16, 14, 18), 1)
+
+    # LEFT tower — tall, wide, battlemented
+    tx1 = W//2 - 105; tw = 68; th = 185
+    ty1 = ground - th
+    # Tower body
+    pygame.draw.rect(surf,(108,88,62),(tx1, ty1, tw, th))
+    pygame.draw.rect(surf,(75,60,40),(tx1, ty1, tw, th), 3)
+    # Stone block texture
+    blk_rng = random.Random(12)
+    for row in range(8):
+        for col in range(3):
+            bsx=tx1+2+col*(tw//3); bsy=ty1+4+row*(th//8)
+            v=blk_rng.randint(-5,5)
+            pygame.draw.rect(surf,(100+v,82+v,58+v),(bsx,bsy,tw//3-3,th//8-3),1)
+    # Tower top platform
+    pygame.draw.rect(surf,(122,102,72),(tx1-6, ty1-12, tw+12, 14))
+    pygame.draw.rect(surf,(88,70,48),(tx1-6, ty1-12, tw+12, 14), 2)
+    # Battlements
+    for bx2 in range(tx1-6, tx1+tw+6, 16):
+        pygame.draw.rect(surf,(122,102,72),(bx2, ty1-28, 11, 18))
+        pygame.draw.rect(surf,(88,70,48),(bx2, ty1-28, 11, 18), 1)
+    # Arrow slit windows
+    for wy2 in [ty1+30, ty1+70, ty1+110]:
+        pygame.draw.rect(surf,(35,22,12),(tx1+tw//2-4, wy2, 8, 20))
+        pygame.draw.polygon(surf,(35,22,12),[(tx1+tw//2-4,wy2),(tx1+tw//2+4,wy2),(tx1+tw//2,wy2-8)])
+    # Tower flag — left
+    pygame.draw.line(surf,(88,70,48),(tx1+tw//2, ty1-28),(tx1+tw//2, ty1-60), 3)
+    pygame.draw.polygon(surf,(165,45,45),[(tx1+tw//2,ty1-60),(tx1+tw//2+22,ty1-52),(tx1+tw//2,ty1-44)])
+
+    # RIGHT tower — mirror
+    tx2 = W//2 + 37
+    pygame.draw.rect(surf,(108,88,62),(tx2, ty1, tw, th))
+    pygame.draw.rect(surf,(75,60,40),(tx2, ty1, tw, th), 3)
+    for row in range(8):
+        for col in range(3):
+            bsx=tx2+2+col*(tw//3); bsy=ty1+4+row*(th//8)
+            v=blk_rng.randint(-5,5)
+            pygame.draw.rect(surf,(100+v,82+v,58+v),(bsx,bsy,tw//3-3,th//8-3),1)
+    pygame.draw.rect(surf,(122,102,72),(tx2-6, ty1-12, tw+12, 14))
+    pygame.draw.rect(surf,(88,70,48),(tx2-6, ty1-12, tw+12, 14), 2)
+    for bx2 in range(tx2-6, tx2+tw+6, 16):
+        pygame.draw.rect(surf,(122,102,72),(bx2, ty1-28, 11, 18))
+        pygame.draw.rect(surf,(88,70,48),(bx2, ty1-28, 11, 18), 1)
+    for wy2 in [ty1+30, ty1+70, ty1+110]:
+        pygame.draw.rect(surf,(35,22,12),(tx2+tw//2-4, wy2, 8, 20))
+        pygame.draw.polygon(surf,(35,22,12),[(tx2+tw//2-4,wy2),(tx2+tw//2+4,wy2),(tx2+tw//2,wy2-8)])
+    pygame.draw.line(surf,(88,70,48),(tx2+tw//2, ty1-28),(tx2+tw//2, ty1-60), 3)
+    pygame.draw.polygon(surf,(165,45,45),[(tx2+tw//2,ty1-60),(tx2+tw//2-22,ty1-52),(tx2+tw//2,ty1-44)])
+
+    # Gate arch — spanning between towers
+    arch_x = tx1+tw; arch_w = tx2-tx1-tw; arch_cx = W//2
+    arch_top = ty1+40
+    # Arch fill (dark passage)
+    pygame.draw.rect(surf,(22,14,8),(arch_x, arch_top, arch_w, ground-arch_top))
+    # Arch curve
+    arch_r = arch_w//2
+    pygame.draw.arc(surf,(22,14,8),(arch_cx-arch_r, arch_top-arch_r, arch_r*2, arch_r*2),
+                    0, math.pi, arch_r)
+    # Arch stone surround — thick decorative border
+    pygame.draw.arc(surf,(128,105,72),(arch_cx-arch_r-6, arch_top-arch_r-6, arch_r*2+12, arch_r*2+12),
+                    0, math.pi, 8)
+    pygame.draw.arc(surf,(88,70,48),(arch_cx-arch_r-10, arch_top-arch_r-10, arch_r*2+20, arch_r*2+20),
+                    0, math.pi, 4)
+    # Keystone
+    pygame.draw.polygon(surf,(148,120,82),[
+        (arch_cx-10, arch_top-arch_r-8),(arch_cx+10, arch_top-arch_r-8),
+        (arch_cx+7, arch_top-arch_r+14),(arch_cx-7, arch_top-arch_r+14)])
+    pygame.draw.polygon(surf,(88,70,48),[
+        (arch_cx-10, arch_top-arch_r-8),(arch_cx+10, arch_top-arch_r-8),
+        (arch_cx+7, arch_top-arch_r+14),(arch_cx-7, arch_top-arch_r+14)], 2)
+    # Portcullis bars visible in shadow
+    for bar_x in range(arch_x+4, arch_x+arch_w-4, 8):
+        pygame.draw.line(surf,(38,28,18),(bar_x, arch_top),(bar_x, ground), 2)
+    for bar_y in [arch_top+20, arch_top+40, arch_top+60]:
+        pygame.draw.line(surf,(38,28,18),(arch_x+2, bar_y),(arch_x+arch_w-2, bar_y), 2)
+    # Gate arch side walls
+    pygame.draw.rect(surf,(108,88,62),(arch_x, arch_top, 8, ground-arch_top))
+    pygame.draw.rect(surf,(108,88,62),(arch_x+arch_w-8, arch_top, 8, ground-arch_top))
+
+    # Town name sign above gate
+    sign_y = ty1 - 8
+    pygame.draw.rect(surf,(88,62,30),(arch_cx-52, sign_y-26, 104, 28))
+    pygame.draw.rect(surf,(120,90,48),(arch_cx-52, sign_y-26, 104, 28), 2)
+    for cx2 in [arch_cx-44, arch_cx+40]:
+        pygame.draw.line(surf,(88,62,30),(cx2, sign_y-28),(cx2, ty1-30), 2)
+    sf = pygame.font.SysFont("courier new",12,bold=True)
+    ss = sf.render("ASHENVALE",True,(220,190,130))
+    surf.blit(ss,(arch_cx-ss.get_width()//2, sign_y-22))
+
+    # Torch brackets on towers — flanking the gate
+    for tcx,tside in [(tx1+tw-4,-1),(tx2+4,1)]:
+        tcy = ty1+45
+        pygame.draw.line(surf,(80,58,28),(tcx,tcy),(tcx+tside*14,tcy-8),3)
+        pygame.draw.rect(surf,(85,62,28),(tcx+tside*10,tcy-22,6,14))
+        tp=0.7+0.3*math.sin(time*3.8+tcx*0.02)
+        pygame.draw.polygon(surf,(int(230*tp),int(130*tp),20),[
+            (tcx+tside*13,tcy-22),(tcx+tside*13,tcy-34),(tcx+tside*17,tcy-26)])
+        tgs=pygame.Surface((28,28),pygame.SRCALPHA)
+        pygame.draw.circle(tgs,(int(200*tp),int(110*tp),20,int(55*tp)),(14,14),12)
+        surf.blit(tgs,(tcx+tside*13-14,tcy-34-6),special_flags=pygame.BLEND_RGBA_ADD)
+
+    # Road perspective leading through gate
+    pygame.draw.polygon(surf,(95,82,62),[
+        (W//2-28,ground),(W//2+28,ground),(W//2+14,H),(W//2-14,H)])
+
+    # Flanking trees — large, stately
+    _draw_tree(surf,tx1-80,ground+2,rng,1.4)
+    _draw_tree(surf,tx2+tw+60,ground+2,rng,1.3)
 
 
 def _bg_house(surf, W, H, rng, time):
     _draw_sky(surf,W,H,(108,148,192),(162,200,225),(60,88,47))
     _draw_town_backdrop(surf,W,H,rng)
     _draw_stone_road(surf,W,H,rng)
-    # House body
     hx,hy,hw,hh = W//2-90, H//2-80, 180, 130
     pygame.draw.rect(surf,(148,120,85),(hx,hy,hw,hh))
     pygame.draw.rect(surf,(110,88,60),(hx,hy,hw,hh),2)
-    # Roof
-    pygame.draw.polygon(surf,(100,68,42),[
-        (hx-10,hy),(hx+hw//2,hy-70),(hx+hw+10,hy)])
-    pygame.draw.polygon(surf,(72,48,28),[
-        (hx-10,hy),(hx+hw//2,hy-70),(hx+hw+10,hy)],2)
-    # Door
+    pygame.draw.polygon(surf,(100,68,42),[(hx-10,hy),(hx+hw//2,hy-70),(hx+hw+10,hy)])
+    pygame.draw.polygon(surf,(72,48,28),[(hx-10,hy),(hx+hw//2,hy-70),(hx+hw+10,hy)],2)
     pygame.draw.rect(surf,(75,52,28),(W//2-18,hy+hh-60,36,60))
     pygame.draw.circle(surf,(160,130,60),(W//2+14,hy+hh-32),5)
-    # Windows
     for wx in [hx+20,hx+hw-56]:
         pygame.draw.rect(surf,(180,215,235),(wx,hy+30,36,30))
         pygame.draw.rect(surf,(90,68,45),(wx,hy+30,36,30),2)
         pygame.draw.line(surf,(90,68,45),(wx+18,hy+30),(wx+18,hy+60),1)
-    # Chimney + smoke
     pygame.draw.rect(surf,(110,88,60),(hx+hw-40,hy-40,16,45))
     for i in range(3):
         smoke = pygame.Surface((18,18),pygame.SRCALPHA)
         pygame.draw.circle(smoke,(180,180,180,50),(9,9),5+i*2)
         surf.blit(smoke,(hx+hw-38+i*5,hy-50-i*12))
-    # Garden fence
     for fx in range(hx-30,hx+hw+30,16):
         pygame.draw.line(surf,(100,78,48),(fx,H*2//3-8),(fx,H*2//3+12),3)
     pygame.draw.line(surf,(110,85,52),(hx-30,H*2//3+2),(hx+hw+30,H*2//3+2),2)
@@ -219,35 +328,27 @@ def _bg_inn(surf, W, H, rng, time):
     _draw_stone_road(surf,W,H,rng)
 
     pulse  = 0.6+0.4*math.sin(time*1.5)
-    ground = H*2//3   # ground line
+    ground = H*2//3
 
-    # Building dimensions — centred, grounded
     hw,hh = 260,140
     hx = W//2-hw//2
     hy = ground-hh
 
-    # Stone foundation strip
     pygame.draw.rect(surf,(78,65,48),(hx-4,ground-8,hw+8,12))
-
-    # Main walls
     pygame.draw.rect(surf,(145,110,62),(hx,hy,hw,hh))
     pygame.draw.rect(surf,(98,72,38),(hx,hy,hw,hh),2)
 
-    # Timber frame — vertical and horizontal beams
     beam=(82,58,28)
     for bx2 in [hx+hw//3, hx+hw*2//3]:
         pygame.draw.line(surf,beam,(bx2,hy),(bx2,ground-8),3)
     pygame.draw.line(surf,beam,(hx,hy+hh//2),(hx+hw,hy+hh//2),2)
-    # Diagonal braces in top panels only
     pygame.draw.line(surf,beam,(hx,hy),(hx+hw//3,hy+hh//2),2)
     pygame.draw.line(surf,beam,(hx+hw,hy),(hx+hw*2//3,hy+hh//2),2)
 
-    # Steep thatched roof
     apex=(W//2,hy-95)
     roof_l=(hx-10,hy); roof_r=(hx+hw+10,hy)
     pygame.draw.polygon(surf,(88,65,30),[roof_l,apex,roof_r])
     pygame.draw.polygon(surf,(62,44,18),[roof_l,apex,roof_r],2)
-    # Thatch texture lines
     for i in range(1,7):
         frac=i/7
         xl=int(roof_l[0]+(apex[0]-roof_l[0])*frac)
@@ -255,19 +356,16 @@ def _bg_inn(surf, W, H, rng, time):
         ty2=int(roof_l[1]+(apex[1]-roof_l[1])*frac)
         pygame.draw.line(surf,(72,52,22),(xl,ty2),(xr,ty2),1)
 
-    # Two chimneys
     for chx in [hx+50,hx+hw-62]:
         pygame.draw.rect(surf,(108,82,48),(chx,hy-55,16,58))
         pygame.draw.rect(surf,(82,62,32),(chx,hy-55,16,58),1)
         pygame.draw.rect(surf,(122,95,55),(chx-3,hy-60,22,8))
-        # Smoke
         for si in range(3):
             sa=0.3+0.25*math.sin(time*1.8+si*1.5+chx*0.01)
             sm=pygame.Surface((18,18),pygame.SRCALPHA)
             pygame.draw.circle(sm,(158,148,135,int(45*sa)),(9,9),4+si*2)
             surf.blit(sm,(chx-1+si*2,hy-66-si*10))
 
-    # Windows — two either side of door, on both floors
     win_cols=[(hx+18,hy+18,46,32),(hx+hw-64,hy+18,46,32),
               (hx+20,hy+hh//2+8,38,26),(hx+hw-58,hy+hh//2+8,38,26)]
     for wx,wy,ww2,wh2 in win_cols:
@@ -279,7 +377,6 @@ def _bg_inn(surf, W, H, rng, time):
         pygame.draw.line(surf,(72,50,22),(wx+ww2//2,wy),(wx+ww2//2,wy+wh2),1)
         pygame.draw.line(surf,(72,50,22),(wx,wy+wh2//2),(wx+ww2,wy+wh2//2),1)
 
-    # Door — arched, centred
     dx=W//2-22; dh=68; dw=44
     pygame.draw.rect(surf,(58,36,14),(dx,ground-dh,dw,dh-8))
     pygame.draw.ellipse(surf,(58,36,14),(dx,ground-dh-18,dw,36))
@@ -288,34 +385,25 @@ def _bg_inn(surf, W, H, rng, time):
         pygame.draw.line(surf,(46,28,10),(dx+4+pi*14,ground-dh),(dx+4+pi*14,ground-10),1)
     pygame.draw.circle(surf,(155,125,50),(dx+dw-8,ground-dh//2),3)
 
-    # Wall-mounted torch brackets (not glowing spheres — small flames)
-    for tx2,tside in [(dx-22,ground-dh-10),(dx+dw+8,ground-dh-10)]:
-        # Wall bracket
+    for tx2 in [dx-22, dx+dw+8]:
         pygame.draw.line(surf,(70,50,25),(tx2,ground-dh-5),(tx2,ground-dh+10),3)
         pygame.draw.line(surf,(70,50,25),(tx2,ground-dh-5),(tx2+6,ground-dh-15),2)
-        # Torch stick
         pygame.draw.rect(surf,(80,58,28),(tx2+2,ground-dh-20,4,14))
-        # Small flame only — no glow surface
         fp=0.65+0.35*math.sin(time*4+tx2)
         pygame.draw.polygon(surf,(int(220*fp),int(110*fp),15),[
             (tx2+4,ground-dh-20),(tx2+4,ground-dh-30),(tx2+8,ground-dh-22)])
 
-    # Hanging sign — on bracket above door, proper size
     sx=W//2; sy=hy+10
-    # Bracket arm
     pygame.draw.line(surf,(75,55,25),(sx,sy),(sx,sy+22),3)
     pygame.draw.line(surf,(75,55,25),(sx-30,sy),(sx+30,sy),3)
-    # Sign board
     pygame.draw.rect(surf,(150,112,52),(sx-42,sy+22,84,24))
     pygame.draw.rect(surf,(105,75,32),(sx-42,sy+22,84,24),2)
-    # Chains
     for cx2 in [sx-36,sx+36]:
         pygame.draw.line(surf,(90,65,30),(cx2,sy),(cx2,sy+22),1)
     sf=pygame.font.SysFont("courier new",10,bold=True)
     ss=sf.render("THE RUSTY FLAGON",True,(230,195,105))
     surf.blit(ss,(sx-ss.get_width()//2,sy+26))
 
-    # Barrels flanking door
     for bx2 in [dx-36,dx+dw+10]:
         bw2=26; bh2=32
         pygame.draw.rect(surf,(85,62,30),(bx2,ground-bh2,bw2,bh2))
@@ -324,7 +412,6 @@ def _bg_inn(surf, W, H, rng, time):
         for bi in [ground-bh2+8,ground-bh2+18]:
             pygame.draw.line(surf,(65,48,22),(bx2,bi),(bx2+bw2,bi),2)
 
-    # Notice board left of building
     nb_x=hx-90; nb_y=ground-70
     for px2 in [nb_x+2,nb_x+58]:
         pygame.draw.rect(surf,(82,60,28),(px2,nb_y+10,5,58))
@@ -348,83 +435,64 @@ def _bg_market(surf, W, H, rng, time):
     ground = H*2//3
     pulse  = 0.6+0.4*math.sin(time*1.2)
 
-    # --- Notice board — large, centred, prominent ---
     bw=110; bh=90
     bx=W//2-bw//2; by=ground-bh-30
-    # Two wooden posts
     for px2 in [bx+8, bx+bw-14]:
         pygame.draw.rect(surf,(75,52,28),(px2,by+bh-8,6,45))
         pygame.draw.rect(surf,(58,40,18),(px2,by+bh-8,6,45),1)
-    # Board backing — dark wood
     pygame.draw.rect(surf,(100,72,38),(bx,by,bw,bh))
     pygame.draw.rect(surf,(72,50,24),(bx,by,bw,bh),3)
-    # Wood grain lines
     for gi in range(1,5):
         pygame.draw.line(surf,(88,62,30),(bx,by+gi*(bh//5)),(bx+bw,by+gi*(bh//5)),1)
-    # Board frame — lighter border
     pygame.draw.rect(surf,(130,95,48),(bx+3,by+3,bw-6,bh-6),2)
-    # Corner nails
     for nx2,ny2 in [(bx+8,by+8),(bx+bw-8,by+8),(bx+8,by+bh-8),(bx+bw-8,by+bh-8)]:
         pygame.draw.circle(surf,(160,130,60),(nx2,ny2),4)
         pygame.draw.circle(surf,(120,95,40),(nx2,ny2),4,1)
 
-    # Pinned papers — 3 papers with pins
     papers = [
         (bx+8,  by+10, 38, 26, (215,202,172), (185,50,40)),
         (bx+52, by+8,  40, 28, (210,198,168), (50,120,185)),
         (bx+14, by+44, 44, 30, (218,206,176), (185,50,40)),
     ]
     for ppx,ppy,pw2,ph2,pc,pin_c in papers:
-        # Slight tilt on some
         pygame.draw.rect(surf,pc,(ppx,ppy,pw2,ph2))
         pygame.draw.rect(surf,(160,145,118),(ppx,ppy,pw2,ph2),1)
-        # Text lines on paper
         for li in range(3):
             lc=(140,125,95) if li>0 else (80,60,30)
             lw2=pw2-8 if li==0 else pw2-4-li*4
             pygame.draw.line(surf,lc,(ppx+4,ppy+6+li*7),(ppx+4+lw2,ppy+6+li*7),1)
-        # Pin
         pygame.draw.circle(surf,pin_c,(ppx+pw2//2,ppy),(4))
         pygame.draw.circle(surf,(255,255,255),(ppx+pw2//2,ppy),2)
 
-    # "NOTICES" header label on board
     f_small=pygame.font.SysFont("courier new",9,bold=True)
     ns=f_small.render("NOTICES",True,(225,198,120))
     surf.blit(ns,(W//2-ns.get_width()//2,by+bh-16))
 
-    # Pulsing glow around board (active quest indicator)
     gw=pygame.Surface((bw+40,bh+40),pygame.SRCALPHA)
     pygame.draw.rect(gw,(int(180*pulse),int(145*pulse),int(60*pulse),
                          int(30*pulse)),(0,0,bw+40,bh+40),border_radius=4)
     surf.blit(gw,(bx-20,by-20),special_flags=pygame.BLEND_RGBA_ADD)
 
-    # Market stalls left and right — bigger, more detailed
     for sx,sc,ac in [(W//2-220,(115,88,50),(185,65,65)),
                       (W//2+110,(100,75,42),(65,155,185))]:
-        # Stall body
         pygame.draw.rect(surf,sc,(sx,ground-55,88,55))
         pygame.draw.rect(surf,(75,55,28),(sx,ground-55,88,55),2)
-        # Coloured awning
         for ai in range(5):
             col2 = ac if ai%2==0 else (235,230,215)
             pygame.draw.rect(surf,col2,(sx+ai*(88//5),ground-68,88//5,16))
         pygame.draw.rect(surf,(65,48,22),(sx,ground-68,88,16),1)
-        # Goods on stall
         for gi,gc in enumerate([(180,60,60),(60,160,80),(220,185,60)]):
             pygame.draw.circle(surf,gc,(sx+18+gi*22,ground-38),7)
 
-    # Well right side — more detailed
     wx2=W//2+165; wy2=ground-30
     pygame.draw.ellipse(surf,(108,85,58),(wx2-28,wy2,56,18))
     pygame.draw.rect(surf,(95,75,48),(wx2-24,wy2-28,48,30))
     pygame.draw.ellipse(surf,(108,85,58),(wx2-24,wy2-32,48,14))
     pygame.draw.rect(surf,(75,58,32),(wx2-24,wy2-28,48,30),2)
-    # Well roof
     pygame.draw.polygon(surf,(85,62,30),[(wx2-32,wy2-28),(wx2,wy2-52),(wx2+32,wy2-28)])
     pygame.draw.line(surf,(65,48,22),(wx2-12,wy2-28),(wx2-12,wy2),2)
     pygame.draw.line(surf,(65,48,22),(wx2+12,wy2-28),(wx2+12,wy2),2)
 
-    # Flower planters
     for fx2 in [W//2-185, W//2+85]:
         pygame.draw.rect(surf,(110,80,45),(fx2,ground-18,32,18))
         pygame.draw.rect(surf,(85,60,30),(fx2,ground-18,32,18),1)
@@ -434,208 +502,465 @@ def _bg_market(surf, W, H, rng, time):
 
 
 def _bg_blacksmith(surf, W, H, rng, time):
-    _draw_sky(surf,W,H,(55,68,90),(100,128,165),(42,62,35))
+    _draw_sky(surf,W,H,(45,55,78),(88,112,148),(38,56,30))
     _draw_town_backdrop(surf,W,H,rng)
     _draw_stone_road(surf,W,H,rng)
 
     pulse  = 0.5+0.5*math.sin(time*3.5)
-    flicker= 0.6+0.4*math.sin(time*7.1+0.4)
+    flicker= 0.7+0.3*math.sin(time*7.1+0.4)
     ground = H*2//3
 
-    hw,hh = 270,148
+    hw,hh = 260,150
     hx = W//2-hw//2; hy = ground-hh
 
-    # Stone foundation
-    pygame.draw.rect(surf,(65,52,35),(hx-4,ground-10,hw+8,14))
+    # Stone foundation ledge
+    pygame.draw.rect(surf,(55,44,28),(hx-6,ground-8,hw+12,12))
+    pygame.draw.rect(surf,(40,32,18),(hx-6,ground-8,hw+12,12),1)
 
-    # Main stone walls — rough texture
-    pygame.draw.rect(surf,(102,85,62),(hx,hy,hw,hh))
-    pygame.draw.rect(surf,(70,55,36),(hx,hy,hw,hh),3)
-    # Stone block pattern
-    for row in range(5):
-        for col in range(8):
-            sx=hx+col*(hw//8)+rng.randint(-1,1)
-            sy=hy+row*(hh//5)+rng.randint(-1,1)
-            v=rng.randint(-5,5)
-            pygame.draw.rect(surf,(95+v,78+v,56+v),(sx+1,sy+1,hw//8-2,hh//5-2),1)
+    # Main stone walls
+    pygame.draw.rect(surf,(98,82,58),(hx,hy,hw,hh))
+    pygame.draw.rect(surf,(68,52,32),(hx,hy,hw,hh),3)
+    # Stone block texture — use fixed offsets, not rng (avoids shimmer on redraw)
+    for row in range(6):
+        for col in range(7):
+            sx=hx+4+col*(hw//7)
+            sy=hy+4+row*(hh//6)
+            v = ((row*7+col)*13+42) % 9 - 4   # deterministic "random"
+            pygame.draw.rect(surf,(90+v,74+v,52+v),(sx,sy,hw//7-4,hh//6-4),1)
 
-    # Flat roof with battlements — fortress style
-    pygame.draw.rect(surf,(85,68,46),(hx-8,hy-18,hw+16,20))
-    pygame.draw.rect(surf,(62,48,30),(hx-8,hy-18,hw+16,20),2)
-    for bx2 in range(hx-8,hx+hw+8,18):
-        pygame.draw.rect(surf,(85,68,46),(bx2,hy-34,12,18))
-        pygame.draw.rect(surf,(62,48,30),(bx2,hy-34,12,18),1)
+    # Flat roof parapet
+    pygame.draw.rect(surf,(80,64,42),(hx-10,hy-16,hw+20,18))
+    pygame.draw.rect(surf,(58,44,26),(hx-10,hy-16,hw+20,18),2)
+    # Battlement merlons — evenly spaced
+    for bx2 in range(hx-8, hx+hw+10, 20):
+        pygame.draw.rect(surf,(80,64,42),(bx2,hy-30,13,16))
+        pygame.draw.rect(surf,(58,44,26),(bx2,hy-30,13,16),1)
 
-    # Two chimneys — heavy smoke
-    for chx in [hx+40,hx+hw-55]:
-        pygame.draw.rect(surf,(95,76,50),(chx,hy-70,22,54))
-        pygame.draw.rect(surf,(68,52,32),(chx,hy-70,22,54),2)
-        pygame.draw.rect(surf,(108,86,56),(chx-4,hy-76,30,12))
-        for si in range(6):
-            sa=0.5+0.35*math.sin(time*2.2+si*1.0+chx*0.01)
-            sm=pygame.Surface((24,24),pygame.SRCALPHA)
-            pygame.draw.circle(sm,(85,78,68,int(55*sa)),(12,12),5+si*3)
-            surf.blit(sm,(chx-1+si*3,hy-82-si*14))
+    # Two chimneys
+    for chx in [hx+48, hx+hw-62]:
+        pygame.draw.rect(surf,(88,70,46),(chx,hy-60,20,46))
+        pygame.draw.rect(surf,(62,46,28),(chx,hy-60,20,46),2)
+        pygame.draw.rect(surf,(100,80,52),(chx-3,hy-64,26,8))
+        pygame.draw.rect(surf,(70,52,30),(chx-3,hy-64,26,8),1)
+        # Smoke — small, contained puffs
+        for si in range(4):
+            sa = 0.3+0.2*math.sin(time*1.8+si*1.2+chx*0.01)
+            sm = pygame.Surface((14,14),pygame.SRCALPHA)
+            pygame.draw.circle(sm,(125,115,102,int(48*sa)),(7,7),3+si*2)
+            surf.blit(sm,(chx+3+si,hy-68-si*10))
 
-    # Large forge window — glowing orange
-    gx=W//2-38; gy=hy+28; gw2=76; gh=52
-    pygame.draw.rect(surf,(52,38,18),(gx-3,gy-3,gw2+6,gh+6))
+    # LEFT side: two smaller windows with orange glow
+    for wx,wy,ww2,wh2 in [(hx+18,hy+22,38,26),(hx+18,hy+hh//2+12,34,22)]:
+        pygame.draw.rect(surf,(52,36,16),(wx-3,wy-3,ww2+6,wh2+6))
+        wsurf=pygame.Surface((ww2,wh2),pygame.SRCALPHA)
+        wsurf.fill((int(205*pulse),int(125*pulse*flicker),int(18*pulse),200))
+        surf.blit(wsurf,(wx,wy))
+        pygame.draw.rect(surf,(42,28,10),(wx,wy,ww2,wh2),2)
+        pygame.draw.line(surf,(42,28,10),(wx+ww2//2,wy),(wx+ww2//2,wy+wh2),1)
+        pygame.draw.line(surf,(42,28,10),(wx,wy+wh2//2),(wx+ww2,wy+wh2//2),1)
+        # Tiny contained glow — max 16px radius
+        gw = pygame.Surface((32,32),pygame.SRCALPHA)
+        pygame.draw.ellipse(gw,(int(150*pulse),int(70*pulse),8,int(22*pulse)),(0,0,32,32))
+        surf.blit(gw,(wx+ww2//2-16,wy+wh2//2-16),special_flags=pygame.BLEND_RGBA_ADD)
+
+    # RIGHT side: large forge window — the main glowing feature
+    gx = hx+hw-78; gy = hy+24; gw2 = 60; gh = 44
+    pygame.draw.rect(surf,(48,32,12),(gx-4,gy-4,gw2+8,gh+8))
     gsurf=pygame.Surface((gw2,gh),pygame.SRCALPHA)
-    gsurf.fill((int(255*pulse),int(135*pulse*flicker),int(15*pulse),215))
+    gsurf.fill((int(248*pulse),int(130*pulse*flicker),int(12*pulse),220))
     surf.blit(gsurf,(gx,gy))
-    pygame.draw.rect(surf,(48,34,14),(gx,gy,gw2,gh),2)
-    # Cross bars on window
-    pygame.draw.line(surf,(48,34,14),(gx+gw2//2,gy),(gx+gw2//2,gy+gh),2)
-    pygame.draw.line(surf,(48,34,14),(gx,gy+gh//2),(gx+gw2,gy+gh//2),2)
-    # Glow spill below window
-    gs2=pygame.Surface((120,60),pygame.SRCALPHA)
-    pygame.draw.ellipse(gs2,(int(200*pulse),int(100*pulse),10,int(40*pulse)),(0,0,120,60))
-    surf.blit(gs2,(gx-22,gy+gh-10),special_flags=pygame.BLEND_RGBA_ADD)
+    pygame.draw.rect(surf,(40,26,8),(gx,gy,gw2,gh),2)
+    pygame.draw.line(surf,(40,26,8),(gx+gw2//2,gy),(gx+gw2//2,gy+gh),2)
+    pygame.draw.line(surf,(40,26,8),(gx,gy+gh//2),(gx+gw2,gy+gh//2),2)
+    # Contained glow spill — small ellipse, low alpha, won't bleed
+    gs2=pygame.Surface((gw2+20,30),pygame.SRCALPHA)
+    pygame.draw.ellipse(gs2,(int(180*pulse),int(88*pulse),8,int(32*pulse)),(0,0,gw2+20,30))
+    surf.blit(gs2,(gx-10,gy+gh-6),special_flags=pygame.BLEND_RGBA_ADD)
 
-    # Small side window
-    pygame.draw.rect(surf,(52,38,18),(hx+18,hy+38,36,28))
-    sw2=pygame.Surface((34,26),pygame.SRCALPHA)
-    sw2.fill((int(220*pulse),int(120*pulse),10,180))
-    surf.blit(sw2,(hx+19,hy+39))
-    pygame.draw.rect(surf,(48,34,14),(hx+18,hy+38,36,28),1)
+    # Second smaller window on right
+    wx2=hx+hw-76; wy2=hy+hh//2+12
+    pygame.draw.rect(surf,(52,36,16),(wx2-3,wy2-3,37,25))
+    sw=pygame.Surface((34,22),pygame.SRCALPHA)
+    sw.fill((int(200*pulse),int(115*pulse),10,190))
+    surf.blit(sw,(wx2,wy2))
+    pygame.draw.rect(surf,(42,28,10),(wx2,wy2,34,22),2)
 
-    # Heavy arched door
-    dx=W//2-28; dw=56; dh=80
-    pygame.draw.rect(surf,(45,30,12),(dx,ground-dh,dw,dh))
-    pygame.draw.ellipse(surf,(45,30,12),(dx,ground-dh-20,dw,40))
-    pygame.draw.ellipse(surf,(32,20,8),(dx,ground-dh-20,dw,40),2)
-    pygame.draw.rect(surf,(38,25,8),(dx,ground-dh,dw,dh),2)
-    # Door reinforcement bars
-    for di in [ground-dh+15,ground-dh+38,ground-dh+60]:
-        pygame.draw.line(surf,(68,55,30),(dx+4,di),(dx+dw-4,di),3)
-    # Iron handle
-    pygame.draw.circle(surf,(120,105,85),(dx+dw-10,ground-dh//2),5)
-    pygame.draw.circle(surf,(90,78,60),(dx+dw-10,ground-dh//2),5,1)
+    # Arched door — centred, well-proportioned
+    dx = W//2-24; dw = 48; dh = 74
+    # Door surround stone
+    pygame.draw.rect(surf,(52,36,14),(dx-4,ground-dh,dw+8,dh))
+    pygame.draw.ellipse(surf,(52,36,14),(dx-4,ground-dh-22,dw+8,44))
+    # Door fill
+    pygame.draw.rect(surf,(40,25,8),(dx,ground-dh,dw,dh))
+    pygame.draw.ellipse(surf,(40,25,8),(dx,ground-dh-20,dw,40))
+    pygame.draw.ellipse(surf,(30,18,4),(dx,ground-dh-20,dw,40),2)
+    # Plank lines
+    for pi in range(4):
+        pygame.draw.line(surf,(34,20,5),(dx+5+pi*11,ground-dh),(dx+5+pi*11,ground-4),1)
+    # Cross brace
+    pygame.draw.line(surf,(48,30,8),(dx+2,ground-dh+18),(dx+dw-2,ground-dh+38),2)
+    pygame.draw.line(surf,(48,30,8),(dx+2,ground-dh+38),(dx+dw-2,ground-dh+18),2)
+    # Handle
+    pygame.draw.circle(surf,(128,110,78),(dx+dw-8,ground-dh//2),4)
+    pygame.draw.circle(surf,(92,76,52),(dx+dw-8,ground-dh//2),4,1)
 
-    # Anvil outside — detailed
-    ax=dx+dw+30; ay=ground-32
-    pygame.draw.rect(surf,(80,72,65),(ax,ay,44,14))
-    pygame.draw.rect(surf,(60,54,48),(ax-4,ay+14,52,10))
-    pygame.draw.rect(surf,(70,62,55),(ax+8,ay+24,28,10))
-    pygame.draw.rect(surf,(55,48,42),(ax,ay,44,14),1)
-    # Hammer resting on anvil
-    pygame.draw.line(surf,(100,82,55),(ax+22,ay-2),(ax+40,ay-20),4)
-    pygame.draw.rect(surf,(130,118,105),(ax+36,ay-24,14,8))
+    # Wall torch brackets either side of door — no large glow surfaces
+    for tx2 in [dx-18, dx+dw+5]:
+        pygame.draw.line(surf,(72,52,26),(tx2+4,ground-dh+6),(tx2+4,ground-dh+18),3)
+        pygame.draw.line(surf,(72,52,26),(tx2+4,ground-dh+6),(tx2+10,ground-dh-5),2)
+        pygame.draw.rect(surf,(82,60,28),(tx2+6,ground-dh-18,5,14))
+        fp = 0.7+0.3*math.sin(time*5+tx2)
+        pygame.draw.polygon(surf,(int(228*fp),int(115*fp),18),[
+            (tx2+8,ground-dh-18),(tx2+5,ground-dh-27),(tx2+11,ground-dh-22)])
+        pygame.draw.polygon(surf,(255,int(195*fp),55),[
+            (tx2+8,ground-dh-18),(tx2+7,ground-dh-23),(tx2+10,ground-dh-20)])
 
-    # Water barrel by door
-    brl_x=dx-46
-    pygame.draw.rect(surf,(80,58,28),(brl_x,ground-40,28,38))
-    pygame.draw.ellipse(surf,(95,70,36),(brl_x,ground-45,28,12))
-    pygame.draw.ellipse(surf,(95,70,36),(brl_x,ground-6,28,12))
-    for bi in [ground-33,ground-20]:
-        pygame.draw.line(surf,(60,44,20),(brl_x,bi),(brl_x+28,bi),2)
+    # Hanging sign — properly above door, not overlapping windows
+    sx = W//2; sy = hy+6
+    pygame.draw.line(surf,(72,52,24),(sx-30,sy+2),(sx+30,sy+2),3)   # horizontal bar
+    pygame.draw.line(surf,(72,52,24),(sx,hy-2),(sx,sy+2),3)           # vertical drop
+    for cx2 in [sx-22, sx+22]:
+        pygame.draw.line(surf,(92,72,38),(cx2,sy+2),(cx2,sy+18),2)   # chains
+    # Sign board
+    pygame.draw.rect(surf,(138,102,46),(sx-40,sy+18,80,26))
+    pygame.draw.rect(surf,(92,65,25),(sx-40,sy+18,80,26),2)
+    # Rivets
+    for rx,ry in [(sx-36,sy+21),(sx+32,sy+21),(sx-36,sy+38),(sx+32,sy+38)]:
+        pygame.draw.circle(surf,(155,125,62),(rx,ry),2)
+    sf = pygame.font.SysFont("courier new",10,bold=True)
+    ss = sf.render("GORIN'S FORGE",True,(212,172,72))
+    surf.blit(ss,(sx-ss.get_width()//2, sy+22))
 
-    # Sign — hanging metal plate
-    sx=W//2; sy=hy+4
-    pygame.draw.line(surf,(68,50,25),(sx-24,sy),(sx-24,sy+20),3)
-    pygame.draw.line(surf,(68,50,25),(sx+24,sy),(sx+24,sy+20),3)
-    pygame.draw.rect(surf,(90,78,55),(sx-42,sy+20,84,22))
-    pygame.draw.rect(surf,(65,52,32),(sx-42,sy+20,84,22),2)
-    sf=pygame.font.SysFont("courier new",10,bold=True)
-    ss=sf.render("GORIN'S FORGE",True,(200,160,60))
-    surf.blit(ss,(sx-ss.get_width()//2,sy+23))
-    # Anvil icon on sign
-    pygame.draw.rect(surf,(160,140,110),(sx+30,sy+22,10,6))
-    pygame.draw.rect(surf,(160,140,110),(sx+28,sy+28,14,4))
+    # Anvil to the right of door
+    ax = dx+dw+26; ay = ground-30
+    pygame.draw.rect(surf,(76,68,60),(ax,ay,42,13))
+    pygame.draw.rect(surf,(56,50,44),(ax-4,ay+13,50,9))
+    pygame.draw.rect(surf,(66,58,50),(ax+7,ay+22,28,9))
+    pygame.draw.rect(surf,(48,42,36),(ax,ay,42,13),1)
+    pygame.draw.line(surf,(102,84,50),(ax+21,ay-2),(ax+36,ay-16),4)
+    pygame.draw.rect(surf,(126,112,98),(ax+33,ay-20,14,8))
 
-    _draw_tree(surf,hx-120,ground+2,rng)
+    # Water barrel left of door
+    bx2 = dx-42
+    pygame.draw.rect(surf,(76,54,24),(bx2,ground-38,26,36))
+    pygame.draw.ellipse(surf,(90,66,30),(bx2,ground-43,26,12))
+    pygame.draw.ellipse(surf,(90,66,30),(bx2,ground-6,26,12))
+    for bi in [ground-32, ground-20]:
+        pygame.draw.line(surf,(56,40,16),(bx2,bi),(bx2+26,bi),2)
+
+    _draw_tree(surf,hx-108,ground+2,rng)
 
 
 def _bg_shop(surf, W, H, rng, time):
-    _draw_sky(surf,W,H,(110,155,198),(168,205,228),(62,90,50))
+    _draw_sky(surf,W,H,(108,155,200),(165,205,228),(58,88,46))
     _draw_town_backdrop(surf,W,H,rng)
     _draw_stone_road(surf,W,H,rng)
-    hx,hy,hw,hh = W//2-100,H//2-90,200,128
-    # Green building
+
+    ground = H*2//3
+    hw,hh = 255,145
+    hx = W//2-hw//2; hy = ground-hh
+
+    # Foundation ledge
+    pygame.draw.rect(surf,(80,100,68),(hx-6,ground-8,hw+12,12))
+    pygame.draw.rect(surf,(55,75,46),(hx-6,ground-8,hw+12,12),1)
+
+    # Main walls — warm green
     pygame.draw.rect(surf,(72,118,68),(hx,hy,hw,hh))
-    pygame.draw.rect(surf,(48,85,44),(hx,hy,hw,hh),2)
-    # Peaked roof
-    pygame.draw.polygon(surf,(55,90,50),[
-        (hx-6,hy),(hx+hw//2,hy-75),(hx+hw+6,hy)])
-    pygame.draw.polygon(surf,(38,65,34),[
-        (hx-6,hy),(hx+hw//2,hy-75),(hx+hw+6,hy)],2)
-    # Striped awning
-    for i in range(6):
-        c = (210,55,55) if i%2==0 else (240,240,240)
-        pygame.draw.rect(surf,c,(hx+i*(hw//6),hy-2,hw//6,12))
-    # Display window
-    pygame.draw.rect(surf,(195,225,218),(W//2-50,hy+38,100,42))
-    pygame.draw.rect(surf,(45,78,40),(W//2-50,hy+38,100,42),2)
-    # Door
-    pygame.draw.rect(surf,(58,42,22),(W//2-20,hy+hh-60,40,60))
-    pygame.draw.circle(surf,(165,135,60),(W//2+16,hy+hh-32),4)
-    # Hanging flower baskets
-    for bx2 in [hx+10,hx+hw-26]:
-        pygame.draw.rect(surf,(88,62,30),(bx2,hy+8,16,12))
-        pygame.draw.circle(surf,(195,65,80),(bx2+8,hy+6),8)
-    _draw_tree(surf,hx+hw+60,H//2,rng)
+    pygame.draw.rect(surf,(48,88,44),(hx,hy,hw,hh),3)
+    # Wall plank texture — horizontal lines
+    for row in range(6):
+        sy = hy + row*(hh//6)
+        pygame.draw.line(surf,(60,100,56),(hx+2,sy),(hx+hw-2,sy),1)
+
+    # Peaked roof — larger and well-proportioned
+    roof_pts = [(hx-10,hy),(hx+hw//2,hy-88),(hx+hw+10,hy)]
+    pygame.draw.polygon(surf,(48,82,42),roof_pts)
+    pygame.draw.polygon(surf,(32,60,28),roof_pts,2)
+    # Roof shingles — diagonal lines
+    for i in range(1,7):
+        frac = i/7
+        xl = int(hx-10 + (hx+hw//2-(hx-10))*frac)
+        xr = int(hx+hw+10 + (hx+hw//2-(hx+hw+10))*frac)
+        ty2 = int(hy + (hy-88-hy)*frac)
+        pygame.draw.line(surf,(38,68,32),(xl,ty2),(xr,ty2),1)
+
+    # Chimney — left side
+    chx = hx+38; chy = hy-70
+    pygame.draw.rect(surf,(88,118,76),(chx,chy,20,55))
+    pygame.draw.rect(surf,(62,92,52),(chx,chy,20,55),2)
+    pygame.draw.rect(surf,(100,132,86),(chx-3,chy-7,26,9))
+    pygame.draw.rect(surf,(68,98,58),(chx-3,chy-7,26,9),1)
+    # Chimney smoke
+    for si in range(4):
+        sa = 0.3+0.2*math.sin(time*1.6+si*1.3)
+        sm = pygame.Surface((14,14),pygame.SRCALPHA)
+        pygame.draw.circle(sm,(155,168,148,int(48*sa)),(7,7),3+si*2)
+        surf.blit(sm,(chx+3+si,chy-12-si*10))
+
+    # Striped canvas awning — wide, colourful
+    aw_y = hy+hh//3; aw_h = 18
+    for i in range(8):
+        c = (215,55,55) if i%2==0 else (245,245,245)
+        pygame.draw.rect(surf,c,(hx+i*(hw//8),aw_y-2,hw//8,aw_h))
+    pygame.draw.rect(surf,(38,65,32),(hx,aw_y-2,hw,aw_h),2)
+    # Awning scalloped bottom edge
+    for i in range(8):
+        ax2 = hx + i*(hw//8) + hw//16
+        pygame.draw.circle(surf,(38,65,32),(ax2, aw_y+aw_h-2),6)
+
+    # Large display window — centred
+    wx = W//2-52; wy = hy+18; ww = 104; wh = hy+hh//3-hy-24
+    pygame.draw.rect(surf,(52,88,46),(wx-4,wy-4,ww+8,wh+8))
+    pygame.draw.rect(surf,(185,220,215),(wx,wy,ww,wh))
+    pygame.draw.rect(surf,(38,70,34),(wx,wy,ww,wh),2)
+    # Window cross bars
+    pygame.draw.line(surf,(38,70,34),(wx+ww//2,wy),(wx+ww//2,wy+wh),2)
+    pygame.draw.line(surf,(38,70,34),(wx,wy+wh//2),(wx+ww,wy+wh//2),2)
+    # Items in window — decorative shapes
+    pygame.draw.circle(surf,(180,55,55),(wx+22,wy+wh//2-4),7)   # red potion
+    pygame.draw.rect(surf,(155,130,65),(wx+ww//2+8,wy+wh//2-10,14,18))  # key/chest
+    pygame.draw.circle(surf,(200,175,60),(wx+ww//2+15,wy+wh//2-12),5)   # coin
+
+    # Two side windows — smaller
+    for swx in [hx+12, hx+hw-52]:
+        pygame.draw.rect(surf,(52,88,46),(swx-3,wy-3,40,32))
+        pygame.draw.rect(surf,(185,220,215),(swx,wy,36,28))
+        pygame.draw.rect(surf,(38,70,34),(swx,wy,36,28),2)
+        pygame.draw.line(surf,(38,70,34),(swx+18,wy),(swx+18,wy+28),1)
+        pygame.draw.line(surf,(38,70,34),(swx,wy+14),(swx+36,wy+14),1)
+
+    # Arched door — centred
+    dx = W//2-22; dw = 44; dh = 62
+    pygame.draw.rect(surf,(52,36,14),(dx-3,ground-dh,dw+6,dh))
+    pygame.draw.ellipse(surf,(52,36,14),(dx-3,ground-dh-18,dw+6,36))
+    pygame.draw.rect(surf,(42,26,8),(dx,ground-dh,dw,dh))
+    pygame.draw.ellipse(surf,(42,26,8),(dx,ground-dh-16,dw,32))
+    pygame.draw.ellipse(surf,(32,18,4),(dx,ground-dh-16,dw,32),2)
+    # Door planks
+    for pi in range(3):
+        pygame.draw.line(surf,(36,22,6),(dx+5+pi*13,ground-dh),(dx+5+pi*13,ground-4),1)
+    # Door handle
+    pygame.draw.circle(surf,(165,135,58),(dx+dw-8,ground-dh//2),4)
+    pygame.draw.circle(surf,(120,95,38),(dx+dw-8,ground-dh//2),4,1)
+
+    # Hanging sign — above door on bracket
+    sx = W//2; sy = hy+8
+    pygame.draw.line(surf,(68,95,55),(sx-28,sy+2),(sx+28,sy+2),3)
+    pygame.draw.line(surf,(68,95,55),(sx,hy-2),(sx,sy+2),3)
+    for cx2 in [sx-20,sx+20]:
+        pygame.draw.line(surf,(88,118,72),(cx2,sy+2),(cx2,sy+18),2)
+    pygame.draw.rect(surf,(58,95,52),(sx-40,sy+18,80,26))
+    pygame.draw.rect(surf,(38,70,32),(sx-40,sy+18,80,26),2)
+    for rx,ry in [(sx-36,sy+21),(sx+32,sy+21),(sx-36,sy+38),(sx+32,sy+38)]:
+        pygame.draw.circle(surf,(120,185,100),(rx,ry),2)
+    sf=pygame.font.SysFont("courier new",10,bold=True)
+    ss=sf.render("MIRA'S SUNDRIES",True,(195,235,170))
+    surf.blit(ss,(sx-ss.get_width()//2, sy+22))
+
+    # Flower boxes under side windows
+    for fbx in [hx+10, hx+hw-52]:
+        pygame.draw.rect(surf,(72,50,24),(fbx,wy+28,38,12))
+        pygame.draw.rect(surf,(52,36,14),(fbx,wy+28,38,12),1)
+        for fi in range(5):
+            fc = (195+fi*5,55+fi*10,75) if fi%2==0 else (255,210,60)
+            pygame.draw.circle(surf,fc,(fbx+4+fi*8,wy+26),5)
+
+    # Barrel and crate outside — left of door
+    bx2 = dx-42
+    pygame.draw.rect(surf,(85,60,26),(bx2,ground-36,26,34))
+    pygame.draw.ellipse(surf,(100,72,32),(bx2,ground-40,26,12))
+    pygame.draw.ellipse(surf,(100,72,32),(bx2,ground-6,26,12))
+    for bi in [ground-30,ground-18]:
+        pygame.draw.line(surf,(62,44,18),(bx2,bi),(bx2+26,bi),2)
+    # Crate right of door
+    crx = dx+dw+10; cry = ground-28
+    pygame.draw.rect(surf,(105,80,40),(crx,cry,28,26))
+    pygame.draw.rect(surf,(75,55,22),(crx,cry,28,26),2)
+    pygame.draw.line(surf,(75,55,22),(crx+14,cry),(crx+14,cry+26),1)
+    pygame.draw.line(surf,(75,55,22),(crx,cry+13),(crx+28,cry+13),1)
+
+    # Two trees flanking
+    _draw_tree(surf,hx-90,ground+2,rng,1.1)
+    _draw_tree(surf,hx+hw+70,ground+2,rng,0.9)
 
 
 def _bg_antiquity(surf, W, H, rng, time):
-    _draw_sky(surf,W,H,(55,45,80),(105,88,140),(48,68,40))
+    _draw_sky(surf,W,H,(38,30,58),(82,65,118),(42,58,36))
     _draw_town_backdrop(surf,W,H,rng)
     _draw_stone_road(surf,W,H,rng)
-    hx,hy,hw,hh = W//2-95,H//2-105,190,140
-    # Purple building
-    pygame.draw.rect(surf,(88,60,118),(hx,hy,hw,hh))
-    pygame.draw.rect(surf,(60,38,85),(hx,hy,hw,hh),2)
-    # Dome
-    pygame.draw.ellipse(surf,(72,48,100),(hx,hy-hw//3,hw,hw//2+hw//3))
-    pygame.draw.ellipse(surf,(50,32,72),(hx,hy-hw//3,hw,hw//2+hw//3),2)
-    # Mystical window
-    pulse = 0.5+0.5*math.sin(time*1.8)
-    wsurf = pygame.Surface((48,48),pygame.SRCALPHA)
-    pygame.draw.circle(wsurf,(int(180*pulse),int(120*pulse),int(255*pulse),180),(24,24),22)
-    surf.blit(wsurf,(W//2-24,hy+28))
-    pygame.draw.circle(surf,(55,35,75),(W//2,hy+52),22,2)
+
+    pulse  = 0.5+0.5*math.sin(time*1.8)
+    pulse2 = 0.5+0.5*math.sin(time*2.4+1.0)
+    ground = H*2//3
+    hw,hh  = 248,152
+    hx = W//2-hw//2; hy = ground-hh
+
+    # Foundation — dark stone
+    pygame.draw.rect(surf,(52,38,65),(hx-6,ground-8,hw+12,12))
+    pygame.draw.rect(surf,(35,24,48),(hx-6,ground-8,hw+12,12),1)
+
+    # Main walls — deep purple stone
+    pygame.draw.rect(surf,(72,48,98),(hx,hy,hw,hh))
+    pygame.draw.rect(surf,(48,30,68),(hx,hy,hw,hh),3)
+    # Stone block texture
+    for row in range(6):
+        for col in range(6):
+            sx2=hx+4+col*(hw//6)
+            sy2=hy+4+row*(hh//6)
+            v=((row*6+col)*11+7)%9-4
+            pygame.draw.rect(surf,(68+v,44+v,92+v),(sx2,sy2,hw//6-4,hh//6-4),1)
+
+    # Ornate dome roof — the signature feature
+    dome_cx = W//2; dome_cy = hy
+    dome_w = hw+24; dome_h = 110
+    # Outer dome
+    pygame.draw.ellipse(surf,(58,38,82),(dome_cx-dome_w//2, dome_cy-dome_h, dome_w, dome_h*2))
+    pygame.draw.ellipse(surf,(38,22,58),(dome_cx-dome_w//2, dome_cy-dome_h, dome_w, dome_h*2),3)
+    # Dome highlight — lighter upper arc
+    pygame.draw.arc(surf,(88,58,118),(dome_cx-dome_w//2+8,dome_cy-dome_h+8,dome_w-16,dome_h*2-16),
+                    math.pi*0.6,math.pi*1.4,3)
+    # Dome ribbing lines
+    for ri in range(-2,3):
+        ra = math.pi/2 + ri*0.28
+        rx1 = dome_cx + int(math.cos(ra)*(dome_w//2-4))
+        ry1 = dome_cy + int(math.sin(ra)*(dome_h-4)) - dome_h//2
+        pygame.draw.line(surf,(48,30,68),(dome_cx,dome_cy-dome_h+4),(rx1,ry1),1)
+    # Dome finial (spire on top)
+    pygame.draw.line(surf,(120,85,158),(dome_cx,dome_cy-dome_h),(dome_cx,dome_cy-dome_h-22),3)
+    pygame.draw.polygon(surf,(140,100,180),[(dome_cx-5,dome_cy-dome_h-18),(dome_cx+5,dome_cy-dome_h-18),
+                                             (dome_cx,dome_cy-dome_h-32)])
+    pygame.draw.circle(surf,(int(180*pulse),int(120*pulse),int(255*pulse)),(dome_cx,dome_cy-dome_h-32),4)
+
+    # Mystical orb window — centred on dome, animated glow
+    orb_x=W//2; orb_y=hy+32; orb_r=26
+    # Glow halo
+    gsurf=pygame.Surface((orb_r*4,orb_r*4),pygame.SRCALPHA)
+    pygame.draw.circle(gsurf,(int(140*pulse),int(80*pulse),int(220*pulse),int(60*pulse)),
+                       (orb_r*2,orb_r*2),orb_r*2)
+    surf.blit(gsurf,(orb_x-orb_r*2,orb_y-orb_r*2),special_flags=pygame.BLEND_RGBA_ADD)
+    # Window frame
+    pygame.draw.circle(surf,(48,28,68),(orb_x,orb_y),orb_r+4)
+    # Orb glass
+    wsurf=pygame.Surface((orb_r*2,orb_r*2),pygame.SRCALPHA)
+    pygame.draw.circle(wsurf,(int(160*pulse),int(100*pulse),int(240*pulse),200),(orb_r,orb_r),orb_r)
+    surf.blit(wsurf,(orb_x-orb_r,orb_y-orb_r))
+    pygame.draw.circle(surf,(80,45,110),(orb_x,orb_y),orb_r,2)
+    # Star spokes radiating from orb
+    for a in range(0,360,45):
+        ra=math.radians(a+time*12)
+        r1=orb_r+6; r2=orb_r+14
+        pygame.draw.line(surf,(int(140*pulse),int(85*pulse),int(200*pulse)),
+                         (orb_x+int(math.cos(ra)*r1),orb_y+int(math.sin(ra)*r1)),
+                         (orb_x+int(math.cos(ra)*r2),orb_y+int(math.sin(ra)*r2)),2)
+    # Inner shimmer
+    pygame.draw.circle(surf,(int(220*pulse),int(160*pulse),int(255*pulse2)),
+                       (orb_x-8,orb_y-8),orb_r//3)
+
+    # Two side windows — tall arched, glowing purple
+    for swx in [hx+16, hx+hw-58]:
+        sww=42; swh=52; swy=hy+hh//2-8
+        # Frame
+        pygame.draw.rect(surf,(48,28,68),(swx-3,swy-3,sww+6,swh+6))
+        pygame.draw.ellipse(surf,(48,28,68),(swx-3,swy-sww//2-3,sww+6,sww+6))
+        # Glass
+        wsf=pygame.Surface((sww,swh),pygame.SRCALPHA)
+        wsf.fill((int(100*pulse2),int(60*pulse2),int(160*pulse2),185))
+        surf.blit(wsf,(swx,swy))
+        pygame.draw.ellipse(surf,(int(100*pulse2),int(60*pulse2),int(160*pulse2),185),
+                            (swx,swy-sww//2,sww,sww))
+        pygame.draw.rect(surf,(38,20,55),(swx,swy,sww,swh),2)
+        pygame.draw.ellipse(surf,(38,20,55),(swx,swy-sww//2,sww,sww),2)
+        # Cross bar
+        pygame.draw.line(surf,(38,20,55),(swx+sww//2,swy),(swx+sww//2,swy+swh),1)
+        pygame.draw.line(surf,(38,20,55),(swx,swy+swh//2),(swx+sww,swy+swh//2),1)
+        # Small contained glow
+        sg=pygame.Surface((30,30),pygame.SRCALPHA)
+        pygame.draw.ellipse(sg,(int(120*pulse2),int(60*pulse2),int(180*pulse2),int(30*pulse2)),(0,0,30,30))
+        surf.blit(sg,(swx+sww//2-15,swy+swh//2-15),special_flags=pygame.BLEND_RGBA_ADD)
+
+    # Arched door — narrow and tall, mysterious
+    dx=W//2-20; dw=40; dh=70
+    pygame.draw.rect(surf,(30,16,44),(dx-3,ground-dh,dw+6,dh))
+    pygame.draw.ellipse(surf,(30,16,44),(dx-3,ground-dh-22,dw+6,44))
+    pygame.draw.rect(surf,(22,10,32),(dx,ground-dh,dw,dh))
+    pygame.draw.ellipse(surf,(22,10,32),(dx,ground-dh-20,dw,40))
+    pygame.draw.ellipse(surf,(15,6,22),(dx,ground-dh-20,dw,40),2)
+    # Door symbol — arcane circle
+    pygame.draw.circle(surf,(75,45,105),(dx+dw//2,ground-dh//2),10,1)
     for a in range(0,360,60):
-        ra=math.radians(a)
-        pygame.draw.line(surf,(int(160*pulse),int(100*pulse),int(220*pulse)),
-                         (W//2+int(math.cos(ra)*14),hy+52+int(math.sin(ra)*14)),
-                         (W//2+int(math.cos(ra)*22),hy+52+int(math.sin(ra)*22)),1)
-    # Arched door
-    pygame.draw.rect(surf,(38,22,52),(W//2-20,hy+hh-66,40,66))
-    pygame.draw.ellipse(surf,(38,22,52),(W//2-20,hy+hh-88,40,44))
+        ra2=math.radians(a)
+        pygame.draw.circle(surf,(75,45,105),
+                           (dx+dw//2+int(math.cos(ra2)*10),ground-dh//2+int(math.sin(ra2)*10)),2)
+    # Door handle
+    pygame.draw.circle(surf,(145,105,185),(dx+dw-7,ground-dh//2),4)
+    pygame.draw.circle(surf,(100,68,135),(dx+dw-7,ground-dh//2),4,1)
+
+    # Hanging sign — ornate, with chains
+    sx=W//2; sy=hy+10
+    pygame.draw.line(surf,(88,55,118),(sx-26,sy+2),(sx+26,sy+2),3)
+    pygame.draw.line(surf,(88,55,118),(sx,hy-2),(sx,sy+2),3)
+    for cx2 in [sx-20,sx+20]:
+        pygame.draw.line(surf,(108,72,145),(cx2,sy+2),(cx2,sy+20),2)
+    pygame.draw.rect(surf,(55,32,78),(sx-44,sy+20,88,28))
+    pygame.draw.rect(surf,(80,50,110),(sx-44,sy+20,88,28),2)
+    # Rivets
+    for rx,ry in [(sx-40,sy+23),(sx+36,sy+23),(sx-40,sy+42),(sx+36,sy+42)]:
+        pygame.draw.circle(surf,(155,110,200),(rx,ry),2)
+    sf=pygame.font.SysFont("courier new",9,bold=True)
+    ss=sf.render("THE CURIO CABINET",True,(195,155,235))
+    surf.blit(ss,(sx-ss.get_width()//2, sy+25))
+
+    # Mysterious display items outside — pedestal with glowing artefact
+    ped_x = dx-52; ped_y = ground-36
+    pygame.draw.rect(surf,(52,34,70),(ped_x,ped_y,28,34))
+    pygame.draw.rect(surf,(38,22,52),(ped_x,ped_y,28,34),1)
+    pygame.draw.rect(surf,(62,42,82),(ped_x-4,ped_y,36,8))   # pedestal top
+    # Orb on pedestal
+    osurf=pygame.Surface((22,22),pygame.SRCALPHA)
+    pygame.draw.circle(osurf,(int(160*pulse2),int(100*pulse2),int(230*pulse2),210),(11,11),10)
+    surf.blit(osurf,(ped_x+3,ped_y-14))
+    pygame.draw.circle(surf,(int(200*pulse2),int(140*pulse2),255),(ped_x+9,ped_y-10),3)
+
+    # Lamp post left side — arcane lantern
+    lx=hx-55; ly=ground-85
+    pygame.draw.line(surf,(65,42,88),(lx,ground),(lx,ly),4)
+    pygame.draw.circle(surf,(72,48,95),(lx,ly),12)
+    pygame.draw.circle(surf,(50,30,70),(lx,ly),12,2)
+    lp=0.6+0.4*math.sin(time*2.8)
+    ls2=pygame.Surface((28,28),pygame.SRCALPHA)
+    pygame.draw.circle(ls2,(int(180*lp),int(100*lp),int(255*lp),int(80*lp)),(14,14),12)
+    surf.blit(ls2,(lx-14,ly-14),special_flags=pygame.BLEND_RGBA_ADD)
+    pygame.draw.circle(surf,(int(220*lp),int(140*lp),255),(lx,ly),5)
+
+    _draw_tree(surf,hx+hw+80,ground+2,rng,0.9)
 
 
 def _bg_dungeon(surf, W, H, rng, time):
     _draw_sky(surf,W,H,(30,22,18),(62,48,38),(35,28,18))
     _draw_stone_road(surf,W,H,rng)
-    # Stone archway
     aw = 120; ax = W//2-aw//2; ay = H//2-130
     pygame.draw.rect(surf,(62,50,35),(ax-18,ay,18,180))
     pygame.draw.rect(surf,(48,38,24),(ax-18,ay,18,180),2)
     pygame.draw.rect(surf,(62,50,35),(ax+aw,ay,18,180))
     pygame.draw.rect(surf,(48,38,24),(ax+aw,ay,18,180),2)
-    # Arch
     pygame.draw.arc(surf,(62,50,35),(ax-18,ay-60,aw+36,120),0,math.pi,16)
-    # Dark void
     vsurf=pygame.Surface((aw,H//3+20),pygame.SRCALPHA)
     vsurf.fill((4,3,2,245))
     surf.blit(vsurf,(ax,ay))
-    # Steps down
     for i in range(4):
         sw=aw-i*12; sx=ax+i*6; sy=ay+H//3-i*12
         pygame.draw.rect(surf,(52,42,28),(sx,sy,sw,10))
-    # Red glow from inside
     pulse=0.4+0.4*math.sin(time*2.2)
     gsurf=pygame.Surface((aw,80),pygame.SRCALPHA)
     pygame.draw.ellipse(gsurf,(int(160*pulse),int(20*pulse),int(20*pulse),
                                 int(80*pulse)),(0,0,aw,80))
     surf.blit(gsurf,(ax,ay+H//3-50))
-    # Skull above arch
     skx,sky=W//2,ay-28
     pygame.draw.circle(surf,(175,165,148),(skx,sky),18)
     pygame.draw.circle(surf,(38,28,16),(skx,sky),18,2)
     pygame.draw.line(surf,(38,28,16),(skx-6,sky),(skx+6,sky),2)
     for ex in [skx-7,skx+7]:
         pygame.draw.circle(surf,(18,12,8),(ex,sky-2),5)
-    # Dead trees
     for tx,side in [(ax-80,1),(ax+aw+80,-1)]:
         pygame.draw.line(surf,(55,42,25),(tx,H*2//3),(tx,H//2-40),4)
         for i in range(3):
@@ -643,11 +968,8 @@ def _bg_dungeon(surf, W, H, rng, time):
             pygame.draw.line(surf,(50,38,22),(tx,by2),(bx2,by2-10),2)
 
 
-
 def _draw_town_backdrop(surf, W, H, rng, exclude_self=True):
-    """Draw two large flanking buildings on each side."""
     ground_y = H * 2 // 3
-    # (x_fraction, width, height)
     side_buildings = [
         (0.13, 130, 145),
         (0.28, 110, 125),
@@ -660,38 +982,23 @@ def _draw_town_backdrop(surf, W, H, rng, exclude_self=True):
         v   = rng.randint(-6, 6)
         col  = (105+v, 85+v, 60+v)
         dark = (72+v,  55+v, 35+v)
-        # Body
         pygame.draw.rect(surf, col,  (bx2-bw2//2, by2, bw2, bh2))
         pygame.draw.rect(surf, dark, (bx2-bw2//2, by2, bw2, bh2), 2)
-        # Pitched roof
         rh = bh2 // 3
         pygame.draw.polygon(surf, (82+v, 58+v, 32+v), [
-            (bx2-bw2//2-5, by2),
-            (bx2,           by2-rh),
-            (bx2+bw2//2+5, by2)])
+            (bx2-bw2//2-5, by2),(bx2, by2-rh),(bx2+bw2//2+5, by2)])
         pygame.draw.polygon(surf, (58+v, 40+v, 20+v), [
-            (bx2-bw2//2-5, by2),
-            (bx2,           by2-rh),
-            (bx2+bw2//2+5, by2)], 2)
-        # Two windows
+            (bx2-bw2//2-5, by2),(bx2, by2-rh),(bx2+bw2//2+5, by2)], 2)
         ww2 = bw2 // 5; wh2 = bh2 // 5
         wy2 = by2 + bh2 // 4
         for wx_off in [-bw2//4, bw2//4 - ww2//2]:
-            pygame.draw.rect(surf, (175, 210, 225),
-                             (bx2+wx_off-ww2//2, wy2, ww2, wh2))
-            pygame.draw.rect(surf, (65, 50, 30),
-                             (bx2+wx_off-ww2//2, wy2, ww2, wh2), 1)
-            pygame.draw.line(surf, (65, 50, 30),
-                             (bx2+wx_off, wy2),
-                             (bx2+wx_off, wy2+wh2), 1)
-        # Door on the wider buildings
+            pygame.draw.rect(surf, (175, 210, 225),(bx2+wx_off-ww2//2, wy2, ww2, wh2))
+            pygame.draw.rect(surf, (65, 50, 30),(bx2+wx_off-ww2//2, wy2, ww2, wh2), 1)
+            pygame.draw.line(surf, (65, 50, 30),(bx2+wx_off, wy2),(bx2+wx_off, wy2+wh2), 1)
         if bw2 >= 130:
             dw2 = bw2 // 5; dh2 = bh2 // 3
-            pygame.draw.rect(surf, (58, 40, 18),
-                             (bx2-dw2//2, by2+bh2-dh2, dw2, dh2))
-        # Chimney
-        pygame.draw.rect(surf, dark,
-                         (bx2+bw2//4-5, by2-rh-18, 10, 22))
+            pygame.draw.rect(surf, (58, 40, 18),(bx2-dw2//2, by2+bh2-dh2, dw2, dh2))
+        pygame.draw.rect(surf, dark,(bx2+bw2//4-5, by2-rh-18, 10, 22))
 
 BG_FUNCS = {
     "gate":       _bg_gate,
@@ -725,28 +1032,55 @@ class TownScene:
         self.font_small  = pygame.font.SysFont("courier new", 14)
         self.font_tiny   = pygame.font.SysFont("courier new", 12)
 
-        self.idx     = start_idx  # current area index
+        self.idx     = start_idx
         self.sliding = False
         self.slide_t = 0.0
-        self.slide_dir = 1        # +1 = going right, -1 = going left
+        self.slide_dir = 1
         self.next_idx  = 0
 
-        # Pre-render all area backgrounds
         self._bgs = self._build_bgs()
+        self._static_bases = self._build_static_bases()
         self._rng = random.Random(42)
 
-        # Notice popup
         self._show_notice = False
         self._notice_idx  = 0
 
         self.open_anim = 0.0
         self.OPEN_DUR  = 0.4
 
-        # Arrow button hover
         self._left_hover  = 0.0
         self._right_hover = 0.0
 
-    # ------------------------------------------------------------------ #
+        # Pre-bake overlay gradients (expensive per-pixel ops done once)
+        self._bot_grad = self._make_gradient(self.W, 100, bottom=True)
+        self._top_grad = self._make_gradient(self.W, 80,  bottom=False)
+
+        # Pre-render per-area text surfaces
+        self._area_text = []
+        for area in AREAS:
+            name_s = self.font_title.render(area["name"], True, (225,195,130))
+            sh_s   = self.font_title.render(area["name"], True, (20,14,6))
+            sub_s  = self.font_sub.render(area["subtitle"], True, (150,120,68))
+            ap_surf = None
+            if area["action_label"]:
+                ap = self.font_small.render(area["action_label"], True,(210,185,110))
+                ap_bg = pygame.Surface((ap.get_width()+20, ap.get_height()+8), pygame.SRCALPHA)
+                ap_bg.fill((10,8,5,180))
+                ap_bg.blit(ap, (10, 4))
+                pygame.draw.rect(ap_bg,(100,80,42),(0,0,ap_bg.get_width(),ap_bg.get_height()),1)
+                ap_surf = ap_bg
+            self._area_text.append((name_s, sh_s, sub_s, ap_surf))
+
+    def _make_gradient(self, W, H, bottom=True):
+        """Build a cached SRCALPHA gradient surface using a scaled 1px strip."""
+        strip = pygame.Surface((1, H), pygame.SRCALPHA)
+        for y in range(H):
+            if bottom:
+                a = int(180 * (y/H)**0.6)
+            else:
+                a = int(140 * ((H-y)/H)**1.2)
+            strip.set_at((0, y), (0, 0, 0, a))
+        return pygame.transform.scale(strip, (W, H))
 
     def _build_bgs(self):
         bgs = []
@@ -761,68 +1095,54 @@ class TownScene:
             bgs.append(surf)
         return bgs
 
-    # BG types that have animation needing per-frame redraw
-    ANIMATED_BGS = {"inn", "blacksmith", "antiquity", "dungeon", "market"}
+    def _build_static_bases(self):
+        """Pre-bake the static (non-animated) layer of each animated BG."""
+        bases = {}
+        rng = random.Random(77)
+        for i, area in enumerate(AREAS):
+            if area["bg"] in self.ANIMATED_BGS:
+                surf = pygame.Surface((self.W, self.H))
+                fn   = BG_FUNCS.get(area["bg"])
+                if fn:
+                    fn(surf, self.W, self.H, random.Random(i*100), 0.0)
+                bases[i] = surf
+        return bases
+
+    ANIMATED_BGS = {"inn", "blacksmith", "antiquity", "dungeon", "market", "shop", "gate"}
 
     def _redraw_bg(self, idx):
-        """Only redraw animated bg types each frame; static ones are pre-baked."""
         if AREAS[idx]["bg"] in self.ANIMATED_BGS:
             surf = self._bgs[idx]
             fn   = BG_FUNCS.get(AREAS[idx]["bg"])
             if fn:
-                # Use a fixed rng so static elements don't shimmer
+                # Restore static base (sky, road, building structure) first
+                # so animated functions only need to redraw glows/flames/smoke
+                if idx in self._static_bases:
+                    surf.blit(self._static_bases[idx], (0, 0))
                 fn(surf, self.W, self.H, random.Random(idx*100), self.time)
 
-    # ------------------------------------------------------------------ #
-    # Drawing helpers
-    # ------------------------------------------------------------------ #
-
     def _draw_area(self, surf_idx, x_offset):
-        """Draw one area background at a horizontal offset."""
         self.screen.blit(self._bgs[surf_idx], (x_offset, 0))
         self._draw_overlay(surf_idx, x_offset)
 
     def _draw_overlay(self, area_idx, ox):
-        """Draw UI overlay (name, arrows, action prompt) on top of bg."""
         area = AREAS[area_idx]
 
-        # Bottom gradient overlay
-        grad = pygame.Surface((self.W, 100), pygame.SRCALPHA)
-        for y in range(100):
-            a = int(180 * (y/100)**0.6)
-            pygame.draw.line(grad,(0,0,0,a),(0,y),(self.W,y))
-        self.screen.blit(grad,(ox, self.H-100))
+        # Use pre-baked gradients — no per-frame surface allocation
+        self.screen.blit(self._bot_grad, (ox, self.H-100))
+        self.screen.blit(self._top_grad, (ox, 0))
 
-        # Top gradient
-        tgrad = pygame.Surface((self.W, 80), pygame.SRCALPHA)
-        for y in range(80):
-            a = int(140 * ((80-y)/80)**1.2)
-            pygame.draw.line(tgrad,(0,0,0,a),(0,y),(self.W,y))
-        self.screen.blit(tgrad,(ox,0))
+        name_s, sh_s, sub_s, ap_surf = self._area_text[area_idx]
+        self.screen.blit(sh_s,   (ox+self.W//2-name_s.get_width()//2+2, self.H-78))
+        self.screen.blit(name_s, (ox+self.W//2-name_s.get_width()//2,   self.H-80))
+        self.screen.blit(sub_s,  (ox+self.W//2-sub_s.get_width()//2,    self.H-48))
 
-        # Area name
-        name_s = self.font_title.render(area["name"], True, (225,195,130))
-        sh_s   = self.font_title.render(area["name"], True, (20,14,6))
-        self.screen.blit(sh_s, (ox+self.W//2-name_s.get_width()//2+2, self.H-78))
-        self.screen.blit(name_s,(ox+self.W//2-name_s.get_width()//2,   self.H-80))
-
-        # Subtitle
-        sub_s = self.font_sub.render(area["subtitle"], True, (150,120,68))
-        self.screen.blit(sub_s,(ox+self.W//2-sub_s.get_width()//2, self.H-48))
-
-        # Action prompt — on the road, below the building
-        if area["action_label"]:
-            ap = self.font_small.render(area["action_label"], True,(210,185,110))
-            bg = pygame.Surface((ap.get_width()+20,ap.get_height()+8),pygame.SRCALPHA)
-            bg.fill((10,8,5,180))
-            bx = ox+self.W//2-bg.get_width()//2
-            by = self.H*2//3+18   # on the road
-            self.screen.blit(bg,(bx,by))
-            pygame.draw.rect(self.screen,(100,80,42),(bx,by,bg.get_width(),bg.get_height()),1)
-            self.screen.blit(ap,(bx+10,by+4))
+        if ap_surf:
+            bx = ox + self.W//2 - ap_surf.get_width()//2
+            by = self.H*2//3+18
+            self.screen.blit(ap_surf, (bx, by))
 
     def _draw_arrows(self, ease):
-        """Draw left/right navigation arrows."""
         alpha = int(255*ease)
         can_left  = self.idx > 0
         can_right = self.idx < len(AREAS)-1
@@ -849,7 +1169,6 @@ class TownScene:
             self.screen.blit(as2,(ax-arr.get_width()//2, cy-arr.get_height()//2))
 
     def _draw_position_dots(self, ease):
-        """Row of dots showing current position."""
         n   = len(AREAS)
         dw  = 10; gap = 6
         total_w = n*(dw+gap)-gap
@@ -915,12 +1234,7 @@ class TownScene:
             "← →  browse    ESC / E  close",True,(75,56,28))
         self.screen.blit(hint,(self.W//2-hint.get_width()//2,py+ph-hint.get_height()-8))
 
-    # ------------------------------------------------------------------ #
-    # Navigation
-    # ------------------------------------------------------------------ #
-
     def _start_slide(self, direction):
-        """Begin a slide animation. direction: +1=right, -1=left."""
         new_idx = self.idx + direction
         if new_idx < 0 or new_idx >= len(AREAS):
             return
@@ -935,10 +1249,6 @@ class TownScene:
         right = pygame.Rect(self.W-68, cy-34, 56, 68)
         return left, right
 
-    # ------------------------------------------------------------------ #
-    # Main loop
-    # ------------------------------------------------------------------ #
-
     def run(self) -> str:
         while True:
             dt          = self.clock.tick(60)/1000.0
@@ -948,7 +1258,6 @@ class TownScene:
             mouse       = pygame.mouse.get_pos()
             left_r, right_r = self._arrow_rects()
 
-            # Hover
             tl = 1.0 if left_r.collidepoint(mouse)  and self.idx>0             else 0.0
             tr = 1.0 if right_r.collidepoint(mouse) and self.idx<len(AREAS)-1  else 0.0
             self._left_hover  += (tl-self._left_hover)*10*dt
@@ -956,7 +1265,6 @@ class TownScene:
             self._left_hover   = max(0.0,min(1.0,self._left_hover))
             self._right_hover  = max(0.0,min(1.0,self._right_hover))
 
-            # Slide animation
             if self.sliding:
                 self.slide_t += dt
                 if self.slide_t >= self.SLIDE_DUR:
@@ -990,19 +1298,14 @@ class TownScene:
                     elif right_r.collidepoint(mouse) and not self.sliding:
                         self._start_slide(1)
 
-            # --- Draw ---
             if self.sliding:
-                # Ease: cubic out
                 raw  = self.slide_t/self.SLIDE_DUR
                 prog = 1-(1-raw)**3
                 offset = int(self.W * prog * -self.slide_dir)
-                # Current area slides out
                 self._redraw_bg(self.idx)
                 self._draw_area(self.idx, offset)
-                # Next area slides in
                 self._redraw_bg(self.next_idx)
-                self._draw_area(self.next_idx,
-                                offset + self.W*self.slide_dir)
+                self._draw_area(self.next_idx, offset + self.W*self.slide_dir)
             else:
                 self._redraw_bg(self.idx)
                 self._draw_area(self.idx, 0)

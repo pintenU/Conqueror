@@ -1,8 +1,8 @@
 {
-  "playtime_seconds": 2091.322741508484,
-  "enemies_defeated": 12,
+  "playtime_seconds": 242.76031351089478,
+  "enemies_defeated": 0,
   "quests_cleared": 0,
-  "gold_collected": 0,
+  "gold_collected": 35,
   "chests_opened": 0,
   "player_hp": 30,
   "player_max_hp": 30,
@@ -10,196 +10,58 @@
   "current_location": "town",
   "inventory_data": [
     {
-      "type": "SwordItem",
-      "kwargs": {},
+      "type": "StickItem",
+      "kwargs": {
+        "upgrade_level": 1
+      },
       "stack_count": 1
     },
     {
       "type": "PotionItem",
       "kwargs": {},
+      "stack_count": 9
+    },
+    {
+      "type": "KeyItem",
+      "kwargs": {
+        "key_id": "key_r1r2"
+      },
       "stack_count": 1
+    },
+    {
+      "type": "KeyItem",
+      "kwargs": {
+        "key_id": "key_r2r3"
+      },
+      "stack_count": 1
+    },
+    {
+      "type": "KeyItem",
+      "kwargs": {
+        "key_id": "key_r3f"
+      },
+      "stack_count": 1
+    },
+    {
+      "type": "CandleItem",
+      "kwargs": {},
+      "stack_count": 4
+    },
+    {
+      "type": "ShieldItem",
+      "kwargs": {},
+      "stack_count": 1
+    },
+    {
+      "type": "GoldItem",
+      "kwargs": {
+        "amount": 35
+      },
+      "stack_count": 35
     }
   ],
-  "door_states": [
-    true,
-    true,
-    true
-  ],
-  "chest_states": [
-    {
-      "opened": false,
-      "items": [
-        {
-          "type": "PotionItem",
-          "kwargs": {},
-          "stack_count": 1
-        },
-        {
-          "type": "KeyItem",
-          "kwargs": {
-            "key_id": "key_r1r2"
-          },
-          "stack_count": 1
-        },
-        {
-          "type": "PotionItem",
-          "kwargs": {},
-          "stack_count": 1
-        }
-      ]
-    },
-    {
-      "opened": false,
-      "items": [
-        {
-          "type": "CandleItem",
-          "kwargs": {},
-          "stack_count": 1
-        },
-        {
-          "type": "CandleItem",
-          "kwargs": {},
-          "stack_count": 1
-        },
-        {
-          "type": "PotionItem",
-          "kwargs": {},
-          "stack_count": 1
-        }
-      ]
-    },
-    {
-      "opened": false,
-      "items": [
-        {
-          "type": "KeyItem",
-          "kwargs": {
-            "key_id": "key_r2r3"
-          },
-          "stack_count": 1
-        },
-        {
-          "type": "PotionItem",
-          "kwargs": {},
-          "stack_count": 1
-        },
-        {
-          "type": "GoldItem",
-          "kwargs": {
-            "amount": 10
-          },
-          "stack_count": 1
-        }
-      ]
-    },
-    {
-      "opened": false,
-      "items": [
-        {
-          "type": "GoldItem",
-          "kwargs": {
-            "amount": 10
-          },
-          "stack_count": 1
-        },
-        {
-          "type": "PotionItem",
-          "kwargs": {},
-          "stack_count": 1
-        },
-        {
-          "type": "PotionItem",
-          "kwargs": {},
-          "stack_count": 1
-        }
-      ]
-    },
-    {
-      "opened": false,
-      "items": [
-        {
-          "type": "KeyItem",
-          "kwargs": {
-            "key_id": "key_r3f"
-          },
-          "stack_count": 1
-        },
-        {
-          "type": "GoldItem",
-          "kwargs": {
-            "amount": 15
-          },
-          "stack_count": 1
-        },
-        {
-          "type": "CandleItem",
-          "kwargs": {},
-          "stack_count": 1
-        }
-      ]
-    },
-    {
-      "opened": false,
-      "items": [
-        {
-          "type": "PotionItem",
-          "kwargs": {},
-          "stack_count": 1
-        },
-        {
-          "type": "GoldItem",
-          "kwargs": {
-            "amount": 5
-          },
-          "stack_count": 1
-        },
-        {
-          "type": "CandleItem",
-          "kwargs": {},
-          "stack_count": 1
-        }
-      ]
-    },
-    {
-      "opened": false,
-      "items": [
-        {
-          "type": "GoldItem",
-          "kwargs": {
-            "amount": 15
-          },
-          "stack_count": 1
-        },
-        {
-          "type": "PotionItem",
-          "kwargs": {},
-          "stack_count": 1
-        },
-        {
-          "type": "CandleItem",
-          "kwargs": {},
-          "stack_count": 1
-        }
-      ]
-    },
-    {
-      "opened": false,
-      "items": [
-        {
-          "type": "ShieldItem",
-          "kwargs": {},
-          "stack_count": 1
-        },
-        {
-          "type": "GoldItem",
-          "kwargs": {
-            "amount": 30
-          },
-          "stack_count": 1
-        }
-      ]
-    }
-  ],
+  "door_states": [],
+  "chest_states": [],
   "armour_data": {
     "helmet": null,
     "chestplate": null,
@@ -215,31 +77,15 @@
     "magic_mastery": 0
   },
   "quest_data": {
-    "active": [
-      {
-        "id": "survive_10_rounds",
-        "title": "Trial by Combat",
-        "desc": "Survive 10 total rounds of combat.",
-        "type": "survive_rounds",
-        "target": null,
-        "target_name": "Combat Rounds",
-        "required": 10,
-        "progress": 0,
-        "reward_gold": 35,
-        "reward_exp": 50,
-        "reward_item": null,
-        "difficulty": 1,
-        "flavour": "Prove you can take a hit."
-      }
-    ],
+    "active": [],
     "completed": [],
     "available": [
-      "kill_rats_5",
-      "survive_10_rounds",
-      "kill_trolls_3",
-      "kill_imps_4"
+      "kill_goblins_5",
+      "collect_gold_100",
+      "kill_skeletons_5",
+      "find_shield"
     ]
   },
-  "save_time": "2026-03-16  12:36",
+  "save_time": "2026-03-17  21:40",
   "slot": 0
 }
