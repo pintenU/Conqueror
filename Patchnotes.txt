@@ -1,8 +1,8 @@
 -------------------------
 Things that need fixing:
-# Code does not start
+# 
 # Map Does not track enemy movement
-# Fix annoying lighting
+# 
 ----------
 Things to add:
 # show locked doors on map

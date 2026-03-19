@@ -28,10 +28,12 @@ from src.scenes.death_scene import DeathScene
 
 
 def _make_game_scene(screen, inventory, exit_unlocked=False, floor=1,
-                     player_stats=None, game_state=None):
+                     player_stats=None, game_state=None,
+                     floor_states=None, return_spawn=None):
     gs = GameScene(screen, inventory,
                    player_stats=player_stats, game_state=game_state,
-                   floor=floor)
+                   floor=floor, floor_states=floor_states,
+                   return_spawn=return_spawn)
     return gs
 
 
@@ -53,6 +55,8 @@ def main():
     dungeon_cleared = False
     prev_scene      = "menu"
     game_state      = GameState()
+    current_floor   = 1   # track which dungeon floor player is on
+    floor_states    = {}  # persisted door/circle states per floor {floor: {unlocked_doors: set}}
 
     scene = "main_menu"
 
@@ -76,6 +80,8 @@ def main():
                 quest_manager   = QuestManager()
                 game_scene      = None
                 dungeon_cleared = False
+                floor_states    = {}
+                current_floor   = 1
                 scene           = "start"
             elif result == "saves":
                 scene = "saves"
@@ -93,7 +99,13 @@ def main():
                 restore(loaded_state, inventory)
                 game_state      = loaded_state
                 dungeon_cleared = loaded_state.dungeon_cleared
-                scene           = "town" if loaded_state.current_location == "town" else "start"
+                current_floor   = getattr(loaded_state, "player_floor", 1)
+                if loaded_state.current_location == "town":
+                    scene = "town"
+                elif current_floor > 1:
+                    scene = f"floor_{current_floor}"
+                else:
+                    scene = "start"
             elif result == "exit":
                 scene = "exit"
             else:
@@ -108,6 +120,7 @@ def main():
                 scene = prev_scene
             elif result == "saves":
                 game_state.player_max_hp = player_stats.max_hp
+                game_state.player_floor = current_floor
                 capture(game_state, inventory, game_scene, dungeon_cleared,
                         "dungeon" if prev_scene == "game" else "town", armour, player_stats, quest_manager)
                 r2 = SavesScene(screen, game_state=game_state, mode="both").run()
@@ -117,9 +130,15 @@ def main():
                     restore(loaded, inventory, armour, player_stats, quest_manager)
                     game_state      = loaded
                     dungeon_cleared = loaded.dungeon_cleared
+                    current_floor   = getattr(loaded, "player_floor", 1)
                     game_scene      = None
                     game_state.player_max_hp = player_stats.max_hp
-                    scene = "town" if loaded.current_location == "town" else "start"
+                    if loaded.current_location == "town":
+                        scene = "town"
+                    elif current_floor > 1:
+                        scene = f"floor_{current_floor}"
+                    else:
+                        scene = "start"
                 else:
                     scene = "pause"
             elif result == "main_menu":
@@ -132,7 +151,8 @@ def main():
         # ----------------------------------------------------------------
         elif scene == "start":
             game_scene = _make_game_scene(screen, inventory, floor=1,
-                                          player_stats=player_stats, game_state=game_state)
+                                          player_stats=player_stats, game_state=game_state,
+                                          floor_states=floor_states)
             prev_scene = "game"
             result     = game_scene.run()
             if result == "pause":
@@ -147,6 +167,9 @@ def main():
             elif result == "menu":
                 prev_scene = "game"
                 scene = "pause"
+            elif result.startswith("floor_"):
+                game_scene = None
+                scene = result
             else:
                 scene = result
 
@@ -156,7 +179,8 @@ def main():
         elif scene == "game":
             if game_scene is None:
                 game_scene = _make_game_scene(screen, inventory, floor=1,
-                                          player_stats=player_stats, game_state=game_state)
+                                          player_stats=player_stats, game_state=game_state,
+                                          floor_states=floor_states)
             prev_scene = "game"
             result     = game_scene.run()
             if result == "pause":
@@ -171,6 +195,9 @@ def main():
             elif result == "menu":
                 prev_scene = "game"
                 scene = "pause"
+            elif result.startswith("floor_"):
+                game_scene = None
+                scene = result
             else:
                 scene = result
 
@@ -204,9 +231,13 @@ def main():
                 scene = "game"
 
         elif scene == "combat":
+            _etype = None
+            if game_scene and game_scene._active_enemy:
+                _etype = game_scene._active_enemy.enemy_type
             combat = CombatScene(screen, inventory, armour=armour,
                                  player_hp=game_state.player_hp,
-                                 player_stats=player_stats)
+                                 player_stats=player_stats,
+                                 enemy_type=_etype)
             prev_scene = "game"
             result     = combat.run()
             if game_scene:
@@ -220,18 +251,37 @@ def main():
                 game_state.player_hp = game_state.player_max_hp
                 scene = "death"
             elif result == "loot":
-                if game_scene and game_scene.goblins:
-                    ts  = 48
-                    pcx = game_scene.player.px + ts//2
-                    pcy = game_scene.player.py + ts//2
-                    idx = min(
-                        range(len(game_scene.goblins)),
-                        key=lambda i: math.hypot(
-                            game_scene.goblins[i].px+ts//2-pcx,
-                            game_scene.goblins[i].py+ts//2-pcy))
-                    game_scene.goblins.pop(idx)
+                # Remove defeated enemy from game scene
+                if game_scene and game_scene._active_enemy:
+                    e = game_scene._active_enemy
+                    if e in game_scene.enemies:
+                        game_scene.enemies.remove(e)
+                    # Inject key drops into loot
+                    from src.scenes.chest_scene import FloorKeyItem, BossKeyItem, RoomKeyItem
+                    def _make_key(kid):
+                        if kid == "floor_key":   return FloorKeyItem()
+                        elif kid == "boss_key":  return BossKeyItem()
+                        else:                    return RoomKeyItem(kid)
+                    if e.drops_key:
+                        combat._goblin_loot.append(_make_key(e.drops_key))
+                    # Extra drops — check which room enemy belongs to
+                    from src.scenes.game_scene import FLOOR_DATA
+                    extra = FLOOR_DATA.get(game_scene.floor,{}).get("extra_drops",{})
+                    for room_key, extra_kids in extra.items():
+                        room_tiles = set(map(tuple, FLOOR_DATA[game_scene.floor]["rooms"].get(room_key,[])))
+                        if (e.tile_col, e.tile_row) in room_tiles:
+                            for kid in extra_kids:
+                                combat._goblin_loot.append(_make_key(kid))
+                    # Chieftain floor 1 extra: key_to_circle
+                    if e.enemy_type == "goblin_chieftain" and game_scene.floor == 1:
+                        combat._goblin_loot.append(_make_key("key_to_circle"))
+                    game_scene._active_enemy = None
                 game_state.enemies_defeated += 1
-                leveled = player_stats.add_exp(EXP_GOBLIN)
+                from src.entities.entity_factory import get_stat
+                _exp = EXP_GOBLIN
+                if combat and combat.enemy_type:
+                    _exp = get_stat(combat.enemy_type, "exp") or EXP_GOBLIN
+                leveled = player_stats.add_exp(_exp)
                 for new_level in leveled:
                     LevelUpScene(screen, player_stats, new_level).run()
                     game_state.player_hp = min(game_state.player_hp, player_stats.max_hp)
@@ -256,20 +306,42 @@ def main():
         # Floor transitions
         # ----------------------------------------------------------------
         elif scene == "floor_2":
+            current_floor = 2
+            # Spawn offset from return circle at (6,20) to avoid instant re-trigger
             game_scene = _make_game_scene(screen, inventory, floor=2,
-                                          player_stats=player_stats, game_state=game_state)
+                                          player_stats=player_stats, game_state=game_state,
+                                          floor_states=floor_states,
+                                          return_spawn=(9, 19))
             prev_scene = "game"
             scene = "game"
 
         elif scene == "floor_3":
+            current_floor = 3
             game_scene = _make_game_scene(screen, inventory, floor=3,
-                                          player_stats=player_stats, game_state=game_state)
+                                          player_stats=player_stats, game_state=game_state,
+                                          floor_states=floor_states)
             prev_scene = "game"
             scene = "game"
 
         elif scene == "floor_4":
+            current_floor = 4
             game_scene = _make_game_scene(screen, inventory, floor=4,
-                                          player_stats=player_stats, game_state=game_state)
+                                          player_stats=player_stats, game_state=game_state,
+                                          floor_states=floor_states)
+            prev_scene = "game"
+            scene = "game"
+
+        elif scene == "floor_1":
+            current_floor = 1
+            # Returning from floor 2 — spawn just beside the floor circle, not on it
+            # Floor circle is at (50,21); spawn 3 tiles left so player isn't auto-triggered
+            from src.scenes.game_scene import FLOOR_DATA
+            f1_circle = FLOOR_DATA[1]["floor_circle"]
+            return_pos = (f1_circle[0] - 3, f1_circle[1])
+            game_scene = _make_game_scene(screen, inventory, floor=1,
+                                          player_stats=player_stats, game_state=game_state,
+                                          floor_states=floor_states,
+                                          return_spawn=return_pos)
             prev_scene = "game"
             scene = "game"
 
@@ -320,6 +392,7 @@ def main():
         # ----------------------------------------------------------------
         elif scene == "town":
             game_state.player_max_hp = player_stats.max_hp
+            game_state.player_floor = current_floor
             capture(game_state, inventory, game_scene, dungeon_cleared, "town", armour, player_stats, quest_manager)
             save_slot(0, game_state)
             prev_scene = "town"
@@ -328,8 +401,11 @@ def main():
 
             if result == "start":
                 # Enter dungeon — do NOT run inline, go to "game" scene properly
+                current_floor = 1
+                floor_states  = {}   # fresh run from town
                 game_scene = _make_game_scene(screen, inventory, floor=1,
-                                              player_stats=player_stats, game_state=game_state)
+                                              player_stats=player_stats, game_state=game_state,
+                                              floor_states=floor_states)
                 prev_scene = "game"
                 scene = "game"
             elif result == "inventory":

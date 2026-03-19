@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import datetime
 
 
@@ -15,10 +16,6 @@ def _slot_path(slot: int) -> str:
     return os.path.join(SAVE_DIR, f"slot_{slot}.json")
 
 
-# ---------------------------------------------------------------------------
-# GameState
-# ---------------------------------------------------------------------------
-
 class GameState:
     def __init__(self):
         self.playtime_seconds  = 0.0
@@ -26,16 +23,20 @@ class GameState:
         self.quests_cleared    = 0
         self.gold_collected    = 0
         self.chests_opened     = 0
+
         self.player_hp         = 30
         self.player_max_hp     = 30
         self.dungeon_cleared   = False
         self.current_location  = "dungeon"
+        self.player_floor      = 1        # which dungeon floor the player is on
+
         self.inventory_data    = []
         self.door_states       = []
         self.chest_states      = []
         self.armour_data       = {}
         self.stats_data        = {}
         self.quest_data        = {}
+
         self.save_time         = ""
         self.slot              = 0
 
@@ -50,6 +51,7 @@ class GameState:
             "player_max_hp":    self.player_max_hp,
             "dungeon_cleared":  self.dungeon_cleared,
             "current_location": self.current_location,
+            "player_floor":     self.player_floor,
             "inventory_data":   self.inventory_data,
             "door_states":      self.door_states,
             "chest_states":     self.chest_states,
@@ -72,75 +74,58 @@ class GameState:
         gs.player_max_hp    = d.get("player_max_hp",    30)
         gs.dungeon_cleared  = d.get("dungeon_cleared",  False)
         gs.current_location = d.get("current_location", "dungeon")
+        gs.player_floor     = d.get("player_floor",     1)
         gs.inventory_data   = d.get("inventory_data",   [])
         gs.door_states      = d.get("door_states",      [])
         gs.chest_states     = d.get("chest_states",     [])
-        gs.armour_data      = d.get("armour_data",      {})
-        gs.stats_data       = d.get("stats_data",       {})
-        gs.quest_data       = d.get("quest_data",       {})
         gs.save_time        = d.get("save_time",        "")
         gs.slot             = d.get("slot",             0)
         return gs
 
 
-# ---------------------------------------------------------------------------
-# Item serialisation helpers
-# ---------------------------------------------------------------------------
-
-def _build_cls_map():
-    """Build the full class map for all serialisable item types."""
+def _item_to_dict(item, stack_count=1) -> dict:
     from src.scenes.chest_scene import (
         PotionItem, CandleItem, SwordItem, SunSwordItem,
-        ShieldItem, GoldItem, KeyItem, ExitKeyItem,
-        StickItem, IronIngotItem,
-        IronHelmet, IronChestplate, IronLeggings, IronBoots,
+        ShieldItem, GoldItem, KeyItem, ExitKeyItem
     )
-    return {
-        "PotionItem":      PotionItem,
-        "CandleItem":      CandleItem,
-        "SwordItem":       SwordItem,
-        "SunSwordItem":    SunSwordItem,
-        "ShieldItem":      ShieldItem,
-        "GoldItem":        GoldItem,
-        "KeyItem":         KeyItem,
-        "ExitKeyItem":     ExitKeyItem,
-        "StickItem":       StickItem,
-        "IronIngotItem":   IronIngotItem,
-        "IronHelmet":      IronHelmet,
-        "IronChestplate":  IronChestplate,
-        "IronLeggings":    IronLeggings,
-        "IronBoots":       IronBoots,
-    }
-
-
-def _item_to_dict(item, stack_count=1) -> dict:
-    """Convert an inventory item to a serialisable dict."""
-    from src.scenes.chest_scene import GoldItem, KeyItem, ExitKeyItem, StickItem
     cls_name = type(item).__name__
     kwargs   = {}
     if isinstance(item, GoldItem):
         kwargs["amount"] = item.amount
     if isinstance(item, KeyItem) and not isinstance(item, ExitKeyItem):
         kwargs["key_id"] = item.key_id
-    # Preserve upgrade level for upgradeable weapons and armour
-    if hasattr(item, "upgrade_level"):
+    if hasattr(item, 'upgrade_level'):
         kwargs["upgrade_level"] = item.upgrade_level
     return {"type": cls_name, "kwargs": kwargs, "stack_count": stack_count}
 
 
 def _dict_to_item(d: dict):
-    """Reconstruct an item from a dict."""
-    cls_map  = _build_cls_map()
+    from src.scenes.chest_scene import (
+        PotionItem, CandleItem, SwordItem, SunSwordItem,
+        ShieldItem, GoldItem, KeyItem, ExitKeyItem,
+        FloorKeyItem, BossKeyItem, RoomKeyItem, StickItem, DebugSwordItem
+    )
+    cls_map = {
+        "PotionItem":   PotionItem,
+        "CandleItem":   CandleItem,
+        "SwordItem":    SwordItem,
+        "SunSwordItem": SunSwordItem,
+        "ShieldItem":   ShieldItem,
+        "GoldItem":     GoldItem,
+        "KeyItem":      KeyItem,
+        "ExitKeyItem":  ExitKeyItem,
+        "FloorKeyItem": FloorKeyItem,
+        "BossKeyItem":  BossKeyItem,
+        "RoomKeyItem":  RoomKeyItem,
+        "StickItem":    StickItem,
+        "DebugSwordItem": DebugSwordItem,
+    }
     cls_name = d["type"]
-    kwargs   = d.get("kwargs", {})
-    cls      = cls_map.get(cls_name)
+    kwargs   = dict(d.get("kwargs", {}))
+    upgrade_level = kwargs.pop("upgrade_level", None)
+    cls = cls_map.get(cls_name)
     if cls is None:
         return None
-
-    # Pull upgrade_level out of kwargs before constructing
-    # (most constructors don't accept it as a parameter)
-    upgrade_level = kwargs.pop("upgrade_level", None)
-
     try:
         item = cls(**kwargs)
     except Exception:
@@ -148,22 +133,14 @@ def _dict_to_item(d: dict):
             item = cls()
         except Exception:
             return None
-
-    # Restore upgrade level after construction
     if upgrade_level is not None:
         item.upgrade_level = upgrade_level
-
     return item
 
-
-# ---------------------------------------------------------------------------
-# Capture / restore
-# ---------------------------------------------------------------------------
 
 def capture(state: GameState, inventory, game_scene=None,
             dungeon_cleared=False, current_location="dungeon",
             armour=None, player_stats=None, quest_manager=None):
-    """Snapshot current game into a GameState."""
     state.dungeon_cleared  = dungeon_cleared
     state.current_location = current_location
     state.save_time        = datetime.datetime.now().strftime("%Y-%m-%d  %H:%M")
@@ -184,17 +161,15 @@ def capture(state: GameState, inventory, game_scene=None,
         state.quest_data = quest_manager.to_dict()
 
     if game_scene:
-        state.door_states  = [d.locked for d in game_scene.locked_doors]
+        state.door_states  = [d.locked for d in getattr(game_scene, 'locked_doors', [])]
         state.chest_states = [
             {"opened": c.opened,
              "items":  [_item_to_dict(it) for it in c.items]}
-            for c in game_scene.chests
+            for c in getattr(game_scene, 'chests', [])
         ]
 
 
-def restore(state: GameState, inventory, armour=None,
-            player_stats=None, quest_manager=None):
-    """Restore inventory (and optionally armour/stats/quests) from a GameState."""
+def restore(state: GameState, inventory, armour=None, player_stats=None, quest_manager=None):
     inventory._stacks = {}
     inventory._order  = []
     inventory._uid    = 0
@@ -221,10 +196,6 @@ def restore(state: GameState, inventory, armour=None,
         else:
             inventory.add(item)
 
-
-# ---------------------------------------------------------------------------
-# Save / Load / Delete
-# ---------------------------------------------------------------------------
 
 def save_slot(slot: int, state: GameState):
     _ensure_dir()

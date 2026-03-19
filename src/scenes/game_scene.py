@@ -82,32 +82,38 @@ def build_floor2():
     rm(15,14,13,10)   # Room A (3 goblins)
     rm(31,14,10, 9)   # Room B (1 goblin)
     rm(44,14,10, 9)   # Room C (1 goblin)
-    rm(57, 4,16,32)   # Big room (6 goblins + chieftain)
+    rm(57, 4,16,32)   # Big room (6 goblins + chieftain) — dead end
     rm(31,26,10, 9)   # Room D (1 goblin)
     rm(20,38,13, 9)   # Room E (1 goblin + chest)
 
     # Spawn circle
     for r in range(16,22):
-        for c in range(3,10):
-            g[r][c]=FLOOR
+        for c in range(3,10): g[r][c]=FLOOR
 
-    # Floor circle (bottom)
+    # Floor circle (bottom left)
     for r in range(40,46):
-        for c in range(3,10):
-            g[r][c]=FLOOR
+        for c in range(3,10): g[r][c]=FLOOR
 
-    ch(11,19,4); ch(28,18,3); ch(41,17,3); ch(54,17,3)
-    cv(36,23,3); cv(25,35,3); cv(36,11,3)
+    ch(10,18,5,2)   # spawn→A: cols 10-14
+    ch(28,18,3,2)   # A→B:     cols 28-30
+    ch(41,17,3,2)   # B→C:     cols 41-43
+    ch(54,17,3,2)   # C→big:   cols 54-56
+    cv(35,23,3,2)   # B↓D:     rows 23-25
+    cv(35,35,3,2)   # D↓:      rows 35-37
+    ch(25,35,10,2)  # D↓E horizontal connector
+    cv(35,11,3,2)   # B↑special: rows 11-13
+    ch(10,41,10,2)  # E→circle: cols 10-19
 
-    # Open walls at room boundaries (row, col)
-    op([(19,9),(20,9),(19,14),(20,14),     # spawn→A
+    # Open walls (row, col)
+    op([(18,15),(19,15),                   # spawn→A (Room A left wall)
         (18,27),(19,27),(18,30),(19,30),   # A→B
         (17,40),(18,40),(17,43),(18,43),   # B→C
         (17,53),(18,53),(17,56),(18,56),   # C→big
-        (14,36),(14,37),(11,36),(11,37),   # B↑special
-        (22,36),(23,36),(26,36),(27,36),   # B↓D
-        (34,36),(35,36),                   # D↓
-        (38,20),(39,20),(40,6),(41,6)])    # E→floor circle
+        (14,35),(14,36),(11,35),(11,36),   # B↑special
+        (22,35),(22,36),(26,35),(26,36),   # B↓D
+        (34,35),(34,36),                   # D bottom
+        (35,25),(36,25),(38,25),(39,25),   # D→E connector
+        (41,20),(42,20),(41,19),(42,19)])  # E→floor circle
 
     return g
 
@@ -198,10 +204,13 @@ FLOOR_DATA = {
         "floor_circle_key": "floor_key",
 
         # Locked doors: (col, row, orientation, key_id)
+        # Format: (col, row, orientation, key_id)
+        # 'h' = door spans cols (col, col+1) at given row — blocks vertical corridor
+        # 'v' = door spans rows (row, row+1) at given col — blocks horizontal corridor
         "locked_doors": [
-            (13,19,'v',"key_central_special"),  # central → special N
-            (5,27,'v', "key_chieftain_chest"),  # chieftain ↔ chest room
-            (19,27,'v',"key_chieftain_chest"),
+            (42,20,'v',"key_to_circle"),    # right room → floor circle (blocks rows 20-21)
+            (19,26,'h',"key_to_chest"),     # central bottom → chest room (blocks cols 19-20)
+            (5, 26,'h',"key_to_chieftain"), # spawn bottom → chieftain (blocks cols 5-6)
         ],
 
         # Rooms: list of floor tiles the enemy can roam in
@@ -217,12 +226,15 @@ FLOOR_DATA = {
         # Enemies: (type, room_key, count, key_drop)
         # key_drop = key_id that one random enemy in this group drops
         "enemies": [
-            ("goblin",            "central",    3, "key_right_to_circle"),
-            ("goblin",            "right",      2, "floor_key_chest"),
-            ("goblin",            "chest_room", 1, None),
-            ("goblin_chieftain",  "chieftain",  1, "floor_key"),
+            ("goblin",           "central",    3, "key_to_chest"),    # one drops key to central→chest
+            ("goblin",           "right",      2, None),              # no key
+            ("goblin",           "chest_room", 1, "key_to_chieftain"),# drops key to spawn→chieftain
+            ("goblin_chieftain", "chieftain",  1, "floor_key"),       # drops floor key
+            # chieftain also drops key_to_circle — handled via extra_drops below
         ],
-        # The chieftain also drops key_chieftain_chest for the locked door
+        "extra_drops": {
+            "chieftain": ["key_to_circle"],  # chieftain drops this in addition to floor_key
+        },
 
         # Chests: (col, row, is_gold, items_fn)
         "chests": [
@@ -243,71 +255,102 @@ FLOOR_DATA = {
 
         # Ground items (col, row, item_type)
         "ground_items": [
-            (5, 22, "stick"),
-            (7, 22, "key_spawn"),  # key_spawn opens nothing — it's just flavour for now
+            (5, 22, "debug_sword"),
         ],
 
         # Boss key locked doors (col, row, orientation)
         "boss_key_doors": [
-            (13, 19, 'v'),  # special N room door
+            (19, 14, 'v'),  # special N room door (top wall of central room)
         ],
     },
 
     # ------- FLOOR 2 -------
     2: {
         "player_spawn": (6, 19),
-        "floor_circle": (6, 42),
+        "floor_circle": (6, 43),
         "floor_circle_key": "floor_key",
+        "return_circle": (6, 20),   # return to Floor 1 — in spawn area
 
+        # Doors:
+        # spawn→A:   key from A goblins (3)
+        # A→B:       key from B goblin (also drops B↓D key)
+        # B→C:       key from C goblin
+        # C→big:     key from big room goblins (one random of 6)
+        # B↑special: boss key door
+        # B↓D:       key from B goblin (same goblin, extra_drops)
+        # D↓E:       key from D goblin
+        # E→circle:  open corridor, floor key used at circle
         "locked_doors": [
-            (14,19,'h',"key_a_to_b"),
-            (28,18,'h',"key_b_to_c"),
-            (41,17,'h',"key_c_to_big"),
-            (25,35,'v',"key_d_to_e"),
+            (10,18,'v',"key_spawn_to_a"),   # spawn→A corridor entrance
+            (28,18,'v',"key_a_to_b"),       # A→B corridor entrance
+            (41,17,'v',"key_b_to_c"),       # B→C corridor entrance
+            (54,17,'v',"key_c_to_big"),     # C→big corridor entrance
+            (35,23,'h',"key_b_to_d"),       # B↓D corridor entrance
+            (25,35,'v',"key_d_to_e"),       # D→E horizontal connector
         ],
 
         "rooms": {
-            "room_a":   [(c,r) for r in range(15,23) for c in range(16,27)],
-            "room_b":   [(c,r) for r in range(15,22) for c in range(32,40)],
-            "room_c":   [(c,r) for r in range(15,22) for c in range(45,53)],
-            "big_room": [(c,r) for r in range( 5,35) for c in range(58,72)],
-            "room_d":   [(c,r) for r in range(27,34) for c in range(32,40)],
-            "room_e":   [(c,r) for r in range(39,46) for c in range(21,32)],
-            "special":  [(c,r) for r in range( 3,10) for c in range(16,59)],
+            "spawn_area": [(c,r) for r in range(17,21) for c in range(4, 9)],
+            "room_a":     [(c,r) for r in range(15,23) for c in range(16,27)],
+            "room_b":     [(c,r) for r in range(15,23) for c in range(32,40)],
+            "room_c":     [(c,r) for r in range(15,22) for c in range(45,53)],
+            "big_room":   [(c,r) for r in range( 6,34) for c in range(59,71)],
+            "room_d":     [(c,r) for r in range(27,34) for c in range(32,40)],
+            "room_e":     [(c,r) for r in range(39,46) for c in range(22,32)],
+            "special":    [(c,r) for r in range( 3,10) for c in range(16,59)],
         },
 
+        # Enemies: (type, room, count, primary_key_drop)
         "enemies": [
-            ("goblin",           "room_a",   3, "key_a_to_b"),
-            ("goblin",           "room_b",   1, "key_b_to_c"),
-            ("goblin",           "room_c",   1, "key_c_to_big"),
-            ("goblin",           "big_room", 6, "key_d_to_e"),
-            ("goblin_chieftain", "big_room", 1, "floor_key"),
-            ("goblin",           "room_d",   1, None),
-            ("goblin",           "room_e",   1, None),
+            # Goblin in spawn area holds key to enter Room A — fight it first
+            ("goblin",           "spawn_area", 1, "key_spawn_to_a"),
+            ("goblin",           "room_a",     3, "key_a_to_b"),   # A goblins drop A→B key
+            ("goblin",           "room_b",     1, "key_b_to_c"),   # B goblin drops B→C key
+            ("goblin",           "room_c",     1, "key_c_to_big"), # C goblin drops C→big key
+            ("goblin",           "big_room",   6, None),
+            ("goblin_chieftain", "big_room",   1, "floor_key"),    # chieftain drops floor key
+            ("goblin",           "room_d",     1, "key_d_to_e"),   # D goblin drops D→E key
+            ("goblin",           "room_e",     1, None),
         ],
 
+        # B goblin also drops B↓D key (extra drop)
+        "extra_drops": {
+            "room_b": ["key_b_to_d"],
+        },
+
         "chests": [
-            {"col":68,"row":20,"gold":False,"items":["potion","gold"]},
-            {"col":70,"row":28,"gold":False,"items":["potion","potion"]},
-            {"col":28,"row":42,"gold":False,"items":["potion","gold"]},
-            # Special room top — bunch of chests + gold
-            {"col":25,"row":6, "gold":False,"items":["potion","gold","potion"]},
-            {"col":35,"row":6, "gold":False,"items":["potion","gold"]},
-            {"col":45,"row":6, "gold":True, "items":["gold","gold","gold","potion"]},
+            # Big room chests
+            {"col":63,"row":10,"gold":False,"items":["potion","gold"]},
+            {"col":67,"row":20,"gold":False,"items":["potion","potion"]},
+            {"col":63,"row":30,"gold":False,"items":["potion","gold"]},
+            # Room E chest
+            {"col":29,"row":43,"gold":False,"items":["potion","gold"]},
+            # Special room (boss key) — many chests + gold chest
+            {"col":22,"row": 6,"gold":False,"items":["potion","gold","potion"]},
+            {"col":33,"row": 6,"gold":False,"items":["potion","gold"]},
+            {"col":44,"row": 6,"gold":False,"items":["potion","potion","gold"]},
+            {"col":52,"row": 6,"gold":True, "items":["gold","gold","gold","potion","potion"]},
         ],
 
         "torches": [
-            (17,15),(26,15),(17,22),(26,22),
-            (33,15),(39,15),(33,22),(39,22),
-            (46,15),(52,15),(46,22),(52,22),
-            (59,5),(71,5),(59,20),(71,20),(59,34),(71,34),
-            (33,27),(39,27),(33,33),(39,33),
-            (22,39),(30,39),(22,45),(30,45),
-            (17,3),(55,3),
+            # Room A
+            (16,15),(25,15),(16,22),(25,22),
+            # Room B
+            (32,15),(39,15),(32,22),(39,22),
+            # Room C
+            (45,15),(52,15),(45,21),(52,21),
+            # Big room
+            (59,6),(71,6),(59,19),(71,19),(59,32),(71,32),
+            # Room D
+            (32,27),(39,27),(32,33),(39,33),
+            # Room E
+            (22,39),(31,39),(22,45),(31,45),
+            # Special top
+            (17,3),(35,3),(55,3),
         ],
 
         "ground_items": [],
-        "boss_key_doors": [(35,11,'v')],
+        "boss_key_doors": [(35,11,'h')],   # B↑special top corridor
     },
 
     # ------- FLOOR 3 -------
@@ -315,6 +358,7 @@ FLOOR_DATA = {
         "player_spawn": (6, 20),
         "floor_circle": (18, 36),
         "floor_circle_key": "floor_key",
+        "return_circle": (6, 20),   # return to Floor 2 — in spawn area
 
         "locked_doors": [
             (27,19,'h',"key_hub_to_big"),
@@ -355,8 +399,9 @@ FLOOR_DATA = {
     # ------- FLOOR 4 -------
     4: {
         "player_spawn": (6, 15),
-        "floor_circle": None,   # no next floor
+        "floor_circle": None,
         "floor_circle_key": None,
+        "return_circle": (6, 15),   # return to Floor 3 — in spawn area
 
         "locked_doors": [
             (11,14,'h',"key_r1_to_r2"),
@@ -531,14 +576,19 @@ class Chest:
 # ---------------------------------------------------------------------------
 
 class LockedDoor:
-    def __init__(self,col,row,orientation,key_id,is_boss_key=False):
+    def __init__(self,col,row,orientation,key_id,is_boss_key=False,size=2):
         self.col=col; self.row=row
         self.orientation=orientation; self.key_id=key_id
         self.locked=True; self.is_boss_key=is_boss_key
+        self.size=size
 
     def tiles(self):
+        """Return the tiles this door occupies.
+        orientation 'h' = blocks horizontally (cols), 'v' = blocks vertically (rows).
+        size defaults to 2 to match 2-wide corridors."""
         result=[]
-        for i in range(3):
+        size = getattr(self, 'size', 2)
+        for i in range(size):
             dc = i if self.orientation=='h' else 0
             dr = i if self.orientation=='v' else 0
             result.append((self.col+dc, self.row+dr))
@@ -597,6 +647,33 @@ class FloorCircle:
             # Down arrow
             pygame.draw.polygon(surface,(180,230,255),[
                 (cx2-8,cy2-4),(cx2+8,cy2-4),(cx2,cy2+10)])
+
+# ---------------------------------------------------------------------------
+# Return Circle (go back to previous floor)
+# ---------------------------------------------------------------------------
+
+class ReturnCircle:
+    """Always-unlocked portal back to the previous floor."""
+    def __init__(self, col, row):
+        self.col = col; self.row = row
+
+    def is_on(self, pc, pr):
+        return abs(pc-self.col)<=2 and abs(pr-self.row)<=2
+
+    def draw(self, surface, ox, oy, time):
+        ts=TILE_SIZE; x=ox+self.col*ts; y=oy+self.row*ts
+        cx2=x+ts//2; cy2=y+ts//2
+        pulse=0.5+0.4*math.sin(time*2.5)
+        # Orange/amber colour to distinguish from floor circle (blue)
+        glow=pygame.Surface((ts*2,ts*2),pygame.SRCALPHA)
+        pygame.draw.circle(glow,(255,160,40,int(50*pulse)),(ts,ts),ts)
+        surface.blit(glow,(cx2-ts,cy2-ts),special_flags=pygame.BLEND_RGBA_ADD)
+        pygame.draw.circle(surface,(220,140,40),(cx2,cy2),ts//2-4,3)
+        pygame.draw.circle(surface,(255,200,100),(cx2,cy2),ts//4,2)
+        # Up arrow
+        pygame.draw.polygon(surface,(255,210,120),[
+            (cx2-8,cy2+4),(cx2+8,cy2+4),(cx2,cy2-10)])
+
 
 # ---------------------------------------------------------------------------
 # Ground Item
@@ -801,12 +878,22 @@ MOVE_KEYS={
 # GameScene
 # ---------------------------------------------------------------------------
 
+def _make_debug_sword():
+    """DEBUG: 80-damage sword for testing. Remove before release."""
+    from src.scenes.chest_scene import DebugSwordItem
+    return DebugSwordItem()
+
+
 class GameScene:
-    def __init__(self, screen, inventory, player_stats=None, game_state=None, floor=1):
+    def __init__(self, screen, inventory, player_stats=None, game_state=None,
+                 floor=1, floor_states=None, return_spawn=None):
         self.inventory    = inventory
         self.player_stats = player_stats
         self.game_state   = game_state
         self.floor        = floor
+        # floor_states: shared dict {floor: {unlocked_door_key_ids: set}}
+        self.floor_states = floor_states if floor_states is not None else {}
+        self.return_spawn = return_spawn  # (col,row) override for spawn position
         self.screen       = screen
         self.W,self.H     = screen.get_size()
         self.clock        = pygame.time.Clock()
@@ -823,8 +910,8 @@ class GameScene:
         self.tile_surf    = build_tile_surface(self.room_map,self.COLS,self.ROWS)
         self.vignette     = self._build_vignette()
 
-        # Player
-        sp=fdata["player_spawn"]
+        # Player — use return_spawn if coming back from a higher floor
+        sp = self.return_spawn if self.return_spawn else fdata["player_spawn"]
         self.player=Player(sp[0],sp[1],TILE_SIZE)
 
         # Torches
@@ -835,13 +922,30 @@ class GameScene:
             (col,row) for col,row,ori in fdata.get("boss_key_doors",[])
         }
         self.locked_doors=[]
-        for col,row,ori,kid in fdata["locked_doors"]:
+        for door_def in fdata["locked_doors"]:
+            col,row,ori,kid = door_def[:4]
             is_bk=(col,row) in boss_key_door_tiles
-            self.locked_doors.append(LockedDoor(col,row,ori,kid,is_boss_key=is_bk))
+            self.locked_doors.append(LockedDoor(col,row,ori,kid,is_boss_key=is_bk,size=2))
+        # Boss key doors (if not already in locked_doors)
+        existing_bk={(d.col,d.row) for d in self.locked_doors if d.is_boss_key}
+        for col,row,ori in fdata.get("boss_key_doors",[]):
+            if (col,row) not in existing_bk:
+                self.locked_doors.append(LockedDoor(col,row,ori,"boss_key",is_boss_key=True,size=2))
+        # Restore previously unlocked doors for this floor
+        unlocked_ids = self.floor_states.get(floor, {}).get("unlocked_doors", set())
+        for door in self.locked_doors:
+            if door.key_id in unlocked_ids:
+                door.locked = False
 
-        # Floor circle
+        # Floor circle (go to next floor)
         fc=fdata["floor_circle"]
         self.floor_circle=FloorCircle(fc[0],fc[1],locked=True) if fc else None
+        # Restore floor circle unlock if previously opened
+        if self.floor_circle and "floor_circle" in unlocked_ids:
+            self.floor_circle.locked=False
+        # Return circle (go back to previous floor)
+        rc=fdata.get("return_circle")
+        self.return_circle=ReturnCircle(rc[0],rc[1]) if rc and floor>1 else None
 
         # Build enemies with random key assignment
         self.enemies=[]
@@ -878,6 +982,8 @@ class GameScene:
         _hud_h=52 if (player_stats and game_state) else 0
         self.camera=Camera(self.W,self.H-_hud_h,self.COLS,self.ROWS,TILE_SIZE)
         self.camera.update(self.player.px,self.player.py)
+        # Cooldown prevents instant re-trigger of floor/return circles on spawn
+        self.circle_cooldown = 1.5
 
     # ------------------------------------------------------------------ #
     # Build helpers
@@ -913,15 +1019,16 @@ class GameScene:
         return chests
 
     def _build_ground_items(self, fdata):
-        from src.scenes.chest_scene import StickItem, KeyItem
+        from src.scenes.chest_scene import StickItem, RoomKeyItem
         result=[]
         for gi in fdata.get("ground_items",[]):
             col,row,itype=gi
-            if itype=="stick":
-                from src.scenes.chest_scene import StickItem
+            if itype=="debug_sword":
+                item=_make_debug_sword()
+            elif itype=="stick":
                 item=StickItem()
             elif itype.startswith("key_"):
-                item=KeyItem(itype)
+                item=RoomKeyItem(itype)
             else:
                 continue
             result.append(GroundItem(col,row,item))
@@ -1011,24 +1118,30 @@ class GameScene:
 
     def _use_key_on_door(self, door):
         """Try to use any matching key from inventory on this door."""
-        from src.scenes.chest_scene import FloorKeyItem, BossKeyItem, KeyItem
+        from src.scenes.chest_scene import FloorKeyItem, BossKeyItem, KeyItem, RoomKeyItem
         for item in list(self.inventory.items):
-            # Boss key opens boss key doors
             if door.is_boss_key and isinstance(item, BossKeyItem):
                 door.locked=False
                 self.inventory.remove(item)
+                self._persist_door(door)
                 return True
-            # Floor key opens floor circle
             if isinstance(item, FloorKeyItem) and door.key_id=="floor_key":
                 door.locked=False
                 self.inventory.remove(item)
+                self._persist_door(door)
                 return True
-            # Regular keys match by key_id
-            if isinstance(item, KeyItem) and hasattr(item,'key_id') and item.key_id==door.key_id:
+            if hasattr(item,'key_id') and item.key_id==door.key_id:
                 door.locked=False
                 self.inventory.remove(item)
+                self._persist_door(door)
                 return True
         return False
+
+    def _persist_door(self, door):
+        """Save this door's unlocked state to floor_states."""
+        if self.floor not in self.floor_states:
+            self.floor_states[self.floor] = {"unlocked_doors": set()}
+        self.floor_states[self.floor]["unlocked_doors"].add(door.key_id)
 
     def _use_floor_key(self):
         from src.scenes.chest_scene import FloorKeyItem
@@ -1037,6 +1150,10 @@ class GameScene:
                 self.inventory.remove(item)
                 if self.floor_circle:
                     self.floor_circle.locked=False
+                    # Persist floor circle unlock
+                    if self.floor not in self.floor_states:
+                        self.floor_states[self.floor] = {"unlocked_doors": set()}
+                    self.floor_states[self.floor]["unlocked_doors"].add("floor_circle")
                 return True
         return False
 
@@ -1080,8 +1197,11 @@ class GameScene:
                                 self._potion_msg="Wrong key!"; self._potion_msg_timer=1.5
 
                     if event.key==pygame.K_f:
-                        # Use floor key at circle
-                        if self.floor_circle and self.floor_circle.is_on(
+                        if self.circle_cooldown>0: pass
+                        elif self.return_circle and self.return_circle.is_on(
+                                self.player.tile_col,self.player.tile_row):
+                            return f"floor_{self.floor-1}"
+                        elif self.floor_circle and self.floor_circle.is_on(
                                 self.player.tile_col,self.player.tile_row):
                             if self.floor_circle.locked:
                                 ok=self._use_floor_key()
@@ -1146,6 +1266,7 @@ class GameScene:
                 self._check_arena_clear()
 
             self.combat_cooldown=max(0.0,self.combat_cooldown-dt)
+            self.circle_cooldown=max(0.0,self.circle_cooldown-dt)
             self._potion_msg_timer=max(0.0,self._potion_msg_timer-dt)
             self.camera.update(self.player.px,self.player.py)
 
@@ -1161,7 +1282,7 @@ class GameScene:
                 return "combat"
 
             # Floor transition trigger (auto on step)
-            if self.floor_circle and not self.floor_circle.locked:
+            if self.circle_cooldown<=0 and self.floor_circle and not self.floor_circle.locked:
                 if self.floor_circle.is_on(self.player.tile_col,self.player.tile_row):
                     return f"floor_{self.floor+1}"
 
@@ -1180,6 +1301,8 @@ class GameScene:
                 chest.draw(self.screen,ox,oy,self.time)
             if self.floor_circle:
                 self.floor_circle.draw(self.screen,ox,oy,self.time)
+            if self.return_circle:
+                self.return_circle.draw(self.screen,ox,oy,self.time)
             for gi in self.ground_items:
                 gi.draw(self.screen,ox,oy,self.time)
             for e in self.enemies:
@@ -1208,6 +1331,12 @@ class GameScene:
                 else:
                     _draw_prompt(self.screen,self.font_small,fcx,fcy,
                                  "[ F ]  Go to next floor",col=(120,200,255))
+            if self.return_circle and self.return_circle.is_on(
+                    self.player.tile_col,self.player.tile_row):
+                rcx=ox+self.return_circle.col*ts+ts//2
+                rcy=oy+self.return_circle.row*ts
+                _draw_prompt(self.screen,self.font_small,rcx,rcy,
+                             f"[ F ]  Return to Floor {self.floor-1}",col=(255,200,80))
 
             # Potion hint
             from src.scenes.chest_scene import PotionItem

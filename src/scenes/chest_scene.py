@@ -416,6 +416,65 @@ class StickItem(Item):
         if self.upgrade_level>=3:
             pygame.draw.circle(surface,(160,140,100),
                                (cx+s//2-6,cy-s//2+6),4)
+
+
+class RoomKeyItem(Item):
+    """Dropped by a random goblin — opens a specific locked door."""
+    def __init__(self, key_id: str = "room_key"):
+        self.key_id = key_id
+        super().__init__("Room Key",
+                         "An iron key. Opens a locked door nearby.",
+                         (150, 130, 70))
+        self.stackable = False
+
+    def draw_icon(self, surface, cx, cy, size):
+        s = size
+        pygame.draw.circle(surface,(130,110,45),(cx-s//4,cy-s//5),s//5+1)
+        pygame.draw.circle(surface,(160,138,58),(cx-s//4,cy-s//5),s//5)
+        pygame.draw.circle(surface,(55, 44,16), (cx-s//4,cy-s//5),s//9)
+        pygame.draw.line(surface,(150,128,52),
+                         (cx-s//4+s//5,cy-s//5),(cx+s//3,cy-s//5),4)
+        pygame.draw.line(surface,(150,128,52),
+                         (cx+s//5,cy-s//5),(cx+s//5,cy-s//5+s//6),3)
+        pygame.draw.line(surface,(150,128,52),
+                         (cx+s//3,cy-s//5),(cx+s//3,cy-s//5+s//8),3)
+
+
+class DebugSwordItem(StickItem):
+    """80-damage debug weapon. Survives save/load. Remove before release."""
+    WEAPON_NAMES  = ["DEBUG Sword"] * 6
+    DAMAGE_VALUES = [80, 80, 80, 80, 80, 80]
+
+    def __init__(self):
+        super().__init__()
+        self.upgrade_level = 0
+
+    @property
+    def name(self): return "DEBUG Sword"
+    @name.setter
+    def name(self, v): pass
+
+    @property
+    def description(self): return "80 damage. DEBUG ONLY."
+    @description.setter
+    def description(self, v): pass
+
+    def draw_icon(self, surface, cx, cy, size):
+        s = size
+        pygame.draw.line(surface, (220, 80, 80),
+                         (cx-s//2+4, cy+s//2-4), (cx+s//2-4, cy-s//2+4), 5)
+        pygame.draw.line(surface, (255, 140, 140),
+                         (cx-s//2+6, cy+s//2-6), (cx+s//2-6, cy-s//2+6), 2)
+        pygame.draw.line(surface, (180, 60, 60),
+                         (cx-6, cy+4), (cx+6, cy-4), 5)
+        try:
+            font = pygame.font.SysFont("courier new", max(8, s//3), bold=True)
+            lbl  = font.render("D", True, (255, 60, 60))
+            surface.blit(lbl, (cx - lbl.get_width()//2, cy - lbl.get_height()//2))
+        except Exception:
+            pass
+
+
 # ===========================================================================
 # Armour items
 # ===========================================================================
