@@ -27,16 +27,11 @@ from src.scenes.saves_scene import SavesScene
 from src.scenes.death_scene import DeathScene
 
 
-def _make_game_scene(screen, inventory, exit_unlocked=False,
+def _make_game_scene(screen, inventory, exit_unlocked=False, floor=1,
                      player_stats=None, game_state=None):
     gs = GameScene(screen, inventory,
-                   player_stats=player_stats, game_state=game_state)
-    if exit_unlocked:
-        gs.exit_tile.locked = False
-        from src.scenes.chest_scene import ExitKeyItem
-        for chest in gs.chests:
-            chest.items = [it for it in chest.items
-                           if not isinstance(it, ExitKeyItem)]
+                   player_stats=player_stats, game_state=game_state,
+                   floor=floor)
     return gs
 
 
@@ -136,7 +131,8 @@ def main():
         # Dungeon — first entry
         # ----------------------------------------------------------------
         elif scene == "start":
-            game_scene = _make_game_scene(screen, inventory, dungeon_cleared, player_stats, game_state)
+            game_scene = _make_game_scene(screen, inventory, floor=1,
+                                          player_stats=player_stats, game_state=game_state)
             prev_scene = "game"
             result     = game_scene.run()
             if result == "pause":
@@ -146,8 +142,6 @@ def main():
                 prev_scene = "game"
                 scene = "inventory"
             elif result == "town":
-                if not game_scene.exit_tile.locked:
-                    dungeon_cleared = True
                 game_scene = None
                 scene = "town"
             elif result == "menu":
@@ -161,7 +155,8 @@ def main():
         # ----------------------------------------------------------------
         elif scene == "game":
             if game_scene is None:
-                game_scene = _make_game_scene(screen, inventory, dungeon_cleared, player_stats, game_state)
+                game_scene = _make_game_scene(screen, inventory, floor=1,
+                                          player_stats=player_stats, game_state=game_state)
             prev_scene = "game"
             result     = game_scene.run()
             if result == "pause":
@@ -171,8 +166,6 @@ def main():
                 prev_scene = "game"
                 scene = "inventory"
             elif result == "town":
-                if game_scene and not game_scene.exit_tile.locked:
-                    dungeon_cleared = True
                 game_scene = None
                 scene = "town"
             elif result == "menu":
@@ -258,6 +251,28 @@ def main():
         # ----------------------------------------------------------------
         # Chest
         # ----------------------------------------------------------------
+
+        # ----------------------------------------------------------------
+        # Floor transitions
+        # ----------------------------------------------------------------
+        elif scene == "floor_2":
+            game_scene = _make_game_scene(screen, inventory, floor=2,
+                                          player_stats=player_stats, game_state=game_state)
+            prev_scene = "game"
+            scene = "game"
+
+        elif scene == "floor_3":
+            game_scene = _make_game_scene(screen, inventory, floor=3,
+                                          player_stats=player_stats, game_state=game_state)
+            prev_scene = "game"
+            scene = "game"
+
+        elif scene == "floor_4":
+            game_scene = _make_game_scene(screen, inventory, floor=4,
+                                          player_stats=player_stats, game_state=game_state)
+            prev_scene = "game"
+            scene = "game"
+
         elif scene == "chest":
             chest  = game_scene._chest_to_open
             result = ChestScene(screen, chest.items, inventory, chest=chest).run()
@@ -272,11 +287,7 @@ def main():
                                     nearby_door=game_scene._nearby_door).run()
             scene = "game" if result != "exit" else "exit"
 
-        elif scene == "use_exit_key":
-            result = InventoryScene(screen, inventory,
-                                    use_mode=True,
-                                    nearby_door=game_scene.exit_tile).run()
-            scene = "game" if result != "exit" else "exit"
+        # Floor transitions handled by game_scene returning "floor_2", "floor_3" etc
 
         # ----------------------------------------------------------------
         # Inventory
@@ -317,7 +328,8 @@ def main():
 
             if result == "start":
                 # Enter dungeon — do NOT run inline, go to "game" scene properly
-                game_scene = _make_game_scene(screen, inventory, dungeon_cleared, player_stats, game_state)
+                game_scene = _make_game_scene(screen, inventory, floor=1,
+                                              player_stats=player_stats, game_state=game_state)
                 prev_scene = "game"
                 scene = "game"
             elif result == "inventory":
