@@ -13,18 +13,6 @@ FLOOR = 0
 WALL  = 1
 EMPTY = 2
 
-# ---------------------------------------------------------------------------
-# Dungeon map — linear path with side rooms
-#
-#  [Side A]         [Side C]
-#     |                |
-# [Entrance]--[R1]--[R2]--[R3]--[Final]
-#                  |
-#               [Side B]
-#
-# Map: 80 cols x 38 rows
-# ---------------------------------------------------------------------------
-
 COLS = 80
 ROWS = 38
 
@@ -34,13 +22,11 @@ def _room(g, col, row, w, h):
             g[r][c] = WALL if (r==row or r==row+h-1 or c==col or c==col+w-1) else FLOOR
 
 def _corridor_h(g, col, row, length, thickness=3):
-    """Horizontal corridor."""
     for r in range(row, row+thickness):
         for c in range(col, col+length):
             g[r][c] = FLOOR
 
 def _corridor_v(g, col, row, length, thickness=3):
-    """Vertical corridor."""
     for r in range(row, row+length):
         for c in range(col, col+thickness):
             g[r][c] = FLOOR
@@ -48,173 +34,102 @@ def _corridor_v(g, col, row, length, thickness=3):
 def _build_room_map():
     g = [[EMPTY]*COLS for _ in range(ROWS)]
 
-    # --- Main path rooms ---
+    # Main path rooms
     _room(g,  1, 14, 13, 11)   # Entrance
     _room(g, 18, 14, 13, 11)   # Room 1
     _room(g, 35, 14, 13, 11)   # Room 2
     _room(g, 52, 14, 13, 11)   # Room 3
-    _room(g, 67, 11, 12, 16)   # Final room (taller)
+    _room(g, 67, 11, 12, 16)   # Final room
 
-    # --- Side rooms ---
-    _room(g, 18,  3, 13,  9)   # Side A — above R1
-    _room(g, 35, 27, 13,  8)   # Side B — below R2
-    _room(g, 52,  3, 13,  9)   # Side C — above R3
+    # Side rooms
+    _room(g, 18,  3, 13,  9)   # Side A
+    _room(g, 35, 27, 13,  8)   # Side B
+    _room(g, 52,  3, 13,  9)   # Side C
 
-    # --- Horizontal corridors (main path) ---
-    _corridor_h(g, 14, 17, 4)   # Entrance → R1
-    _corridor_h(g, 31, 17, 4)   # R1 → R2
-    _corridor_h(g, 48, 17, 4)   # R2 → R3
-    _corridor_h(g, 65, 17, 2)   # R3 → Final
+    # Horizontal corridors
+    _corridor_h(g, 14, 17, 4)
+    _corridor_h(g, 31, 17, 4)
+    _corridor_h(g, 48, 17, 4)
+    _corridor_h(g, 65, 17, 2)
 
-    # --- Vertical corridors (side rooms) ---
-    _corridor_v(g, 22, 12, 2)   # R1 ↑ Side A (rows 12-13)
-    _corridor_v(g, 40, 25, 2)   # R2 ↓ Side B (rows 25-26)
-    _corridor_v(g, 57, 12, 2)   # R3 ↑ Side C (rows 12-13)
+    # Vertical corridors
+    _corridor_v(g, 22, 12, 2)
+    _corridor_v(g, 40, 25, 2)
+    _corridor_v(g, 57, 12, 2)
 
-    # --- Test room --- south of entrance (wider and taller for 2 rows)
-    _room(g, 1, 27, 38, 11)
-    # Corridor connecting entrance bottom to test room top
-    for r2 in range(25, 28):
-        for col2 in range(5, 8):
-            g[r2][col2] = FLOOR
-    # Open entrance south wall and test room north wall
-    for col2 in range(5, 8):
-        g[24][col2] = FLOOR
-        g[27][col2] = FLOOR
-
-    # --- Punch doorways through room walls ---
-    # Horizontal corridors need the adjoining room walls opened
+    # Punch doorways
     for r in range(17, 20):
-        g[r][14] = FLOOR   # Entrance right wall → R1 corridor
-        g[r][13] = FLOOR   # also open entrance wall col 13
-        g[r][18] = FLOOR   # R1 left wall
-        g[r][30] = FLOOR   # R1 right wall
-        g[r][31] = FLOOR   # gap
-        g[r][35] = FLOOR   # R2 left wall
-        g[r][47] = FLOOR   # R2 right wall
-        g[r][48] = FLOOR   # gap
-        g[r][52] = FLOOR   # R3 left wall
-        g[r][64] = FLOOR   # R3 right wall
-        g[r][65] = FLOOR   # gap
-        g[r][67] = FLOOR   # Final left wall
+        g[r][14] = FLOOR; g[r][13] = FLOOR
+        g[r][18] = FLOOR; g[r][30] = FLOOR; g[r][31] = FLOOR
+        g[r][35] = FLOOR; g[r][47] = FLOOR; g[r][48] = FLOOR
+        g[r][52] = FLOOR; g[r][64] = FLOOR; g[r][65] = FLOOR
+        g[r][67] = FLOOR
 
-    # Vertical corridors need top/bottom room walls opened
     for col in range(22, 25):
-        g[11][col] = FLOOR   # Side A bottom wall
-        g[12][col] = FLOOR   # gap
-        g[14][col] = FLOOR   # R1 top wall
+        g[11][col] = FLOOR; g[12][col] = FLOOR; g[14][col] = FLOOR
     for col in range(40, 43):
-        g[24][col] = FLOOR   # R2 bottom wall
-        g[25][col] = FLOOR   # gap
-        g[27][col] = FLOOR   # Side B top wall
+        g[24][col] = FLOOR; g[25][col] = FLOOR; g[27][col] = FLOOR
     for col in range(57, 60):
-        g[11][col] = FLOOR   # Side C bottom wall
-        g[12][col] = FLOOR   # gap
-        g[14][col] = FLOOR   # R3 top wall
+        g[11][col] = FLOOR; g[12][col] = FLOOR; g[14][col] = FLOOR
 
     return g
 
 ROOM_MAP = _build_room_map()
 
-# ---------------------------------------------------------------------------
-# Positions
-# ---------------------------------------------------------------------------
-
 TORCH_POSITIONS = [
-    # Entrance
-    (3,15),(10,15),(3,22),(10,22),
-    # R1
-    (20,15),(28,15),(20,22),(28,22),
-    # Side A
-    (20,4),(28,4),(20,10),(28,10),
-    # R2
-    (37,15),(45,15),(37,22),(45,22),
-    # Side B
-    (37,28),(45,28),(37,33),(45,33),
-    # R3
-    (54,15),(62,15),(54,22),(62,22),
-    # Side C
-    (54,4),(62,4),(54,10),(62,10),
-    # Final
-    (69,12),(76,12),(69,24),(76,24),
-    # Test room — wider, more torches
-    (2,28),(10,28),(20,28),(30,28),(37,28),
-    (2,34),(10,34),(20,34),(30,34),(37,34),
+    # Entrance — two on the north wall only
+    (3,14),(10,14),
+    # R1 — two on north wall
+    (20,14),(28,14),
+    # Side A — one on south wall
+    (24,11),
+    # R2 — two on north wall
+    (37,14),(45,14),
+    # Side B — one on north wall
+    (40,27),
+    # R3 — two on north wall
+    (54,14),(62,14),
+    # Side C — one on south wall
+    (57,11),
+    # Final — two on north wall, one each side
+    (69,11),(76,11),
 ]
 
 GOBLIN_PATROLS = [
-    # Entrance — one slow guard
     [(3,18),  (10,18)],
-    # R1 — one patrol
     [(20,18), (28,18)],
-    # Side A — one patrol
     [(20,6),  (28,6)],
-    # R2 — two goblins
     [(37,18), (45,18)],
     [(37,20), (45,20)],
-    # Side B — one patrol
     [(37,29), (45,29)],
-    # R3 — two goblins
     [(54,18), (62,18)],
     [(54,20), (62,20)],
-    # Side C — one patrol
     [(54,6),  (62,6)],
-    # Final — two tough guards (regular goblins)
     [(69,15), (76,15)],
     [(69,20), (76,20)],
 ]
 
-# Goblin King position in the final room (centre)
 BOSS_PATROL = [(70, 18), (76, 18)]
 
-# Test room enemy positions — single tile = stand still
-TEST_ENEMY_PATROLS = {
-    # Row 1 — regular enemies
-    "goblin":           [(3,  30)],
-    "skeleton":         [(6,  30)],
-    "troll":            [(9,  30)],
-    "dark_mage":        [(12, 30)],
-    "imp":              [(15, 30)],
-    "dire_rat":         [(18, 30)],
-    "orc_warrior":      [(21, 30)],
-    "stone_golem":      [(24, 30)],
-    "werewolf":         [(27, 30)],
-    "lich":             [(30, 30)],
-    # Row 2 — bosses
-    "bone_lord":        [(3,  33)],
-    "mountain_king":    [(6,  33)],
-    "archmage":         [(9,  33)],
-    "inferno_duke":     [(12, 33)],
-    "rat_king":         [(15, 33)],
-    "warchief_grommak": [(18, 33)],
-    "ancient_colossus": [(21, 33)],
-    "the_alpha":        [(24, 33)],
-    "lich_king":        [(27, 33)],
-}
-
 CHEST_POSITIONS = [
-    (10, 22),   # Entrance — potion + exit key slot (FIXED)
-    (28, 22),   # R1
-    (28,  5),   # Side A — key for R1→R2 door
-    (45, 22),   # R2
-    (45, 31),   # Side B — key for R2→R3 door
-    (62, 22),   # R3
-    (62,  5),   # Side C — random loot
-    (76, 21),   # Final — Exit Key here!
+    (10, 22),
+    (28, 22),
+    (28,  5),
+    (45, 22),
+    (45, 31),
+    (62, 22),
+    (62,  5),
+    (76, 21),
 ]
 
-# Locked doors — (col, row, orientation)
 LOCKED_DOORS = [
-    (31, 17, 'h'),   # R1 → R2
-    (48, 17, 'h'),   # R2 → R3
-    (65, 17, 'h'),   # R3 → Final
+    (31, 17, 'h'),
+    (48, 17, 'h'),
+    (65, 17, 'h'),
 ]
 DOOR_KEY_IDS = ["key_r1r2", "key_r2r3", "key_r3f"]
 
-# Exit tile — in the entrance room, top-left corner
-EXIT_TILE = (3, 15)
-
-# Player spawns just inside entrance
+EXIT_TILE    = (3, 15)
 PLAYER_SPAWN = (7, 18)
 
 MOVE_KEYS = {
@@ -225,10 +140,6 @@ MOVE_KEYS = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Tile rendering
-# ---------------------------------------------------------------------------
-
 def _draw_floor_tile(surface, x, y, rng):
     ts = TILE_SIZE
     v  = rng.randint(-8, 8)
@@ -236,8 +147,7 @@ def _draw_floor_tile(surface, x, y, rng):
     pygame.draw.line(surface, (25,20,14), (x,y), (x+ts-1,y), 1)
     pygame.draw.line(surface, (25,20,14), (x,y), (x,y+ts-1), 1)
     if rng.random() < 0.22:
-        cx2 = x + rng.randint(8,ts-8)
-        cy2 = y + rng.randint(8,ts-8)
+        cx2 = x + rng.randint(8,ts-8); cy2 = y + rng.randint(8,ts-8)
         pygame.draw.line(surface,(28,22,16),(cx2,cy2),
                          (cx2+rng.randint(-6,6),cy2+rng.randint(-6,6)),1)
 
@@ -270,14 +180,9 @@ def build_tile_surface():
     return surf
 
 
-# ---------------------------------------------------------------------------
-# Chest
-# ---------------------------------------------------------------------------
-
 class Chest:
     def __init__(self, col, row, items):
-        self.col=col; self.row=row
-        self.items=items; self.opened=False
+        self.col=col; self.row=row; self.items=items; self.opened=False
 
     def draw(self, surface, ox, oy, time):
         ts=TILE_SIZE; x=ox+self.col*ts; y=oy+self.row*ts
@@ -309,10 +214,6 @@ class Chest:
                (self.col==pc and abs(self.row-pr)==1)
 
 
-# ---------------------------------------------------------------------------
-# Torch
-# ---------------------------------------------------------------------------
-
 class Torch:
     def __init__(self, col, row):
         self.col=col; self.row=row
@@ -328,9 +229,9 @@ class Torch:
     def draw(self, surface, t, ox, oy):
         ts=TILE_SIZE; cx=ox+self.col*ts+ts//2; cy=oy+self.row*ts+ts//2
         bri=self.flame_brightness(t)
-        gr=int(ts*4.5)
+        gr=int(ts*2.0)   # much smaller glow — moody, not blinding
         glow=pygame.Surface((gr*2,gr*2),pygame.SRCALPHA)
-        for rad,alpha in [(gr,int(18*bri)),(gr*2//3,int(35*bri)),(gr//3,int(55*bri))]:
+        for rad,alpha in [(gr,int(10*bri)),(gr*2//3,int(22*bri)),(gr//3,int(40*bri))]:
             pygame.draw.circle(glow,(200,130,40,alpha),(gr,gr),rad)
         surface.blit(glow,(cx-gr,cy-gr),special_flags=pygame.BLEND_RGBA_ADD)
         pygame.draw.rect(surface,(80,65,45),(cx-4,cy,8,10))
@@ -346,10 +247,6 @@ class Torch:
         pygame.draw.polygon(surface,(255,230,160),
             [(fx-1+ox2,fy-4),(fx+ox2,fy-13),(fx+1+ox2,fy-4)])
 
-
-# ---------------------------------------------------------------------------
-# Locked Door
-# ---------------------------------------------------------------------------
 
 class LockedDoor:
     def __init__(self, col, row, orientation, key_id):
@@ -387,10 +284,6 @@ class LockedDoor:
             surface.blit(glow,(x,y),special_flags=pygame.BLEND_RGBA_ADD)
 
 
-# ---------------------------------------------------------------------------
-# Exit Tile
-# ---------------------------------------------------------------------------
-
 class ExitTile:
     def __init__(self, col, row):
         self.col=col; self.row=row; self.locked=True
@@ -425,10 +318,6 @@ class ExitTile:
             pygame.draw.polygon(surface,arr,[(cx,cy-12),(cx-5,cy-6),(cx+5,cy-6)])
 
 
-# ---------------------------------------------------------------------------
-# Camera
-# ---------------------------------------------------------------------------
-
 class Camera:
     def __init__(self, sw, sh, mc, mr, ts):
         self.sw=sw; self.sh=sh
@@ -440,10 +329,6 @@ class Camera:
         self.ox=max(self.sw-self.mw,min(0,self.sw//2-int(px)-ts//2))
         self.oy=max(self.sh-self.mh,min(0,self.sh//2-int(py)-ts//2))
 
-
-# ---------------------------------------------------------------------------
-# Prompts
-# ---------------------------------------------------------------------------
 
 def _draw_prompt(surface, font, cx, cy, text, col=(210,185,120), border=(90,70,42)):
     s=font.render(text,True,col)
@@ -466,10 +351,6 @@ def _draw_key_prompt(surface, font, cx, cy):
     _draw_prompt(surface,font,cx,cy,"[ E ]  Use Key",border=(140,110,42))
 
 
-# ---------------------------------------------------------------------------
-# GameScene
-# ---------------------------------------------------------------------------
-
 class GameScene:
     def __init__(self, screen, inventory, player_stats=None, game_state=None):
         self.inventory=inventory
@@ -486,12 +367,6 @@ class GameScene:
         self.player=Player(PLAYER_SPAWN[0],PLAYER_SPAWN[1],TILE_SIZE)
         self.goblins=[spawn_patrol('goblin',p,TILE_SIZE) for p in GOBLIN_PATROLS]
 
-        # Test room enemies — standing still for testing
-        self.test_enemies = [
-            spawn_patrol(etype, patrol, TILE_SIZE)
-            for etype, patrol in TEST_ENEMY_PATROLS.items()
-        ]
-        # Goblin King — same movement as goblin but triggers boss fight
         self.boss = spawn_patrol('goblin_king',BOSS_PATROL,TILE_SIZE)
         self.boss_defeated = False
 
@@ -505,21 +380,13 @@ class GameScene:
             return [_r.choice(pool)() for _ in range(n)]
 
         chest_items=[
-            # Entrance chest — potion + key to R1→R2 (approachable start)
             [PotionItem(), KeyItem("key_r1r2"), PotionItem()],
-            # R1 chest — random loot
             _rand(3),
-            # Side A chest — key to R2→R3 (reward for exploring)
             [KeyItem("key_r2r3")] + _rand(2),
-            # R2 chest — random loot
             _rand(3),
-            # Side B chest — key to R3→Final
             [KeyItem("key_r3f")] + _rand(2),
-            # R3 chest — random loot
             _rand(3),
-            # Side C chest — extra loot (optional explore)
             _rand(3),
-            # Final chest — Exit Key! Hard earned
             [ExitKeyItem(), ShieldItem(), GoldItem(30)],
         ]
         self.chests=[Chest(col,row,items)
@@ -527,7 +394,6 @@ class GameScene:
 
         self.font_small=pygame.font.SysFont("courier new",15)
 
-        # HUD
         if player_stats and game_state:
             from src.ui.hud import HUD
             self._hud = HUD(screen)
@@ -544,7 +410,6 @@ class GameScene:
         self.locked_doors=[LockedDoor(col,row,ori,kid)
                            for (col,row,ori),kid in zip(LOCKED_DOORS,DOOR_KEY_IDS)]
         self._defeated_goblin_idx=None
-        self._active_test_enemy=None
         self._potion_msg       = ""
         self._potion_msg_timer = 0.0
 
@@ -573,16 +438,38 @@ class GameScene:
                         self.visited.add((col,row))
 
     def _draw_ambient_darkness(self):
-        dark=pygame.Surface((self.W,self.H),pygame.SRCALPHA)
-        dark.fill((0,0,0,155))
         ts=TILE_SIZE; ox=self.camera.ox; oy=self.camera.oy
+        px=ox+int(self.player.px)+ts//2; py=oy+int(self.player.py)+ts//2
+
+        # Build a darkness mask — start fully transparent, we'll paint darkness onto it
+        dark=pygame.Surface((self.W,self.H),pygame.SRCALPHA)
+
+        # Player vision gradient — draw from edge inward so centre stays clear
+        # Draw largest (darkest) ring first, smallest (clearest) last
+        vision_r = int(ts*5.5)
+        steps = 32
+        for i in range(steps, 0, -1):
+            r = int(vision_r * i / steps)
+            a = int(190 * ((i / steps) ** 1.4))
+            pygame.draw.circle(dark, (0, 0, 0, a), (px, py), r)
+
+        # Flood fill darkness everywhere outside the vision circle
+        # by drawing a big dark rect and then cutting torch holes in it
+        outer = pygame.Surface((self.W,self.H),pygame.SRCALPHA)
+        outer.fill((0,0,0,190))
+
+        # Cut torch holes in the outer darkness
         for torch in self.torches:
             bri=torch.flame_brightness(self.time)
             cx=ox+torch.col*ts+ts//2; cy=oy+torch.row*ts+ts//2
-            pygame.draw.circle(dark,(0,0,0,0),(cx,cy),int(ts*5*bri))
-        px=ox+int(self.player.px)+ts//2; py=oy+int(self.player.py)+ts//2
-        pygame.draw.circle(dark,(0,0,0,0),(px,py),int(ts*2.5))
+            pygame.draw.circle(outer,(0,0,0,0),(cx,cy),int(ts*2.2*bri))
+
+        # Cut out the full vision circle from outer so our gradient shows through
+        pygame.draw.circle(outer,(0,0,0,0),(px,py),vision_r)
+
+        # Composite: outer darkness on top, then gradient fills the vision area
         self.screen.blit(dark,(0,0))
+        self.screen.blit(outer,(0,0))
 
     def _check_combat(self):
         ts=TILE_SIZE
@@ -592,24 +479,11 @@ class GameScene:
                 return True
         return False
 
-    def _check_test_combat(self):
-        ts  = TILE_SIZE
-        pcx = self.player.px + ts//2
-        pcy = self.player.py + ts//2
-        for e in self.test_enemies:
-            if math.hypot(e.px+ts//2-pcx, e.py+ts//2-pcy) < ts*0.75:
-                # Remove from test list on combat trigger
-                self._active_test_enemy = e
-                return True
-        return False
-
     def _check_boss_combat(self):
         if self.boss_defeated: return False
-        ts  = TILE_SIZE
-        pcx = self.player.px + ts//2
-        pcy = self.player.py + ts//2
-        return math.hypot(self.boss.px+ts//2-pcx,
-                          self.boss.py+ts//2-pcy) < ts*0.85
+        ts=TILE_SIZE
+        pcx=self.player.px+ts//2; pcy=self.player.py+ts//2
+        return math.hypot(self.boss.px+ts//2-pcx,self.boss.py+ts//2-pcy)<ts*0.85
 
     def _check_nearby_chest(self):
         for chest in self.chests:
@@ -626,45 +500,37 @@ class GameScene:
         return None
 
     def _check_nearby_exit(self):
-        if self.exit_tile.is_adjacent(
-                self.player.tile_col,self.player.tile_row):
+        if self.exit_tile.is_adjacent(self.player.tile_col,self.player.tile_row):
             return self.exit_tile
         return None
 
     def _draw_boss(self, ox, oy):
-        """Draw the Goblin King in the dungeon — bigger and more menacing."""
         ts     = TILE_SIZE
         margin = (ts - int(ts*0.9)) // 2
         draw_x = int(self.boss.px) + ox + margin - ts//4
         draw_y = int(self.boss.py) + oy + margin - ts//2
 
-        # Big shadow
         sh = pygame.Surface((int(ts*1.4), ts//3), pygame.SRCALPHA)
         pygame.draw.ellipse(sh,(0,0,0,60),(0,0,int(ts*1.4),ts//3))
         self.screen.blit(sh,(draw_x-ts//8, draw_y+int(ts*1.1)))
 
-        # Scale up the goblin sprite
         size = int(ts * 1.4)
         s = size; cx = draw_x + s//2; cy = draw_y + s//2
         bob = math.sin(self.time*2.0)*3
 
-        # Body
         bw,bh = int(s*0.7),int(s*0.55)
         bx = cx-bw//2; by = cy-bh//4+int(bob)
         pygame.draw.rect(self.screen,(65,128,50),(bx,by,bw,bh))
         pygame.draw.rect(self.screen,(40,85,30),(bx,by,bw,bh),2)
-        # Armour
         for i in range(3):
             ax=bx+4+i*(bw//3)
             pygame.draw.rect(self.screen,(80,65,40),(ax,by+4,bw//3-4,bh//3))
 
-        # Legs
         lw,lh=s//3,int(s*0.4)
         lby=by+bh-4+int(bob)
         pygame.draw.rect(self.screen,(50,100,40),(cx-lw-4,lby,lw,lh))
-        pygame.draw.rect(self.screen,(50,100,40),(cx+4,   lby,lw,lh))
+        pygame.draw.rect(self.screen,(50,100,40),(cx+4,lby,lw,lh))
 
-        # Arms + club
         arm_y=by+bh//5
         pygame.draw.line(self.screen,(55,105,42),(cx-bw//2,arm_y),
                          (cx-bw//2-s//3,arm_y-s//5),5)
@@ -673,28 +539,22 @@ class GameScene:
                          (club_x-s//4,club_y-s//3),6)
         pygame.draw.circle(self.screen,(90,62,30),(club_x-s//4,club_y-s//3),s//6)
 
-        # Head
         hr=int(s*0.32); hx=cx; hy=by-hr+int(bob)
         pygame.draw.circle(self.screen,(80,148,60),(hx,hy),hr)
         pygame.draw.circle(self.screen,(55,105,42),(hx,hy),hr,2)
 
-        # Crown
         cp=[(hx-hr,hy-hr+4),(hx-hr+6,hy-hr-10),(hx-6,hy-hr-2),
             (hx,hy-hr-14),(hx+6,hy-hr-2),(hx+hr-6,hy-hr-10),(hx+hr,hy-hr+4)]
         pygame.draw.polygon(self.screen,(80,68,40),cp)
         pygame.draw.polygon(self.screen,(110,92,55),cp,2)
 
-        # Red eyes
         eox=hr//2
         pygame.draw.circle(self.screen,(240,50,30),(hx-eox,hy),4)
         pygame.draw.circle(self.screen,(240,50,30),(hx+eox,hy),4)
 
-        # Name tag
         name_s = self.font_small.render("GOBLIN KING",True,(240,80,60))
-        self.screen.blit(name_s,(cx-name_s.get_width()//2,
-                                  draw_y-name_s.get_height()-4))
+        self.screen.blit(name_s,(cx-name_s.get_width()//2,draw_y-name_s.get_height()-4))
 
-        # Red glow
         gr=int(ts*2.5)
         glow=pygame.Surface((gr*2,gr*2),pygame.SRCALPHA)
         pulse=0.4+0.3*math.sin(self.time*2.5)
@@ -763,8 +623,6 @@ class GameScene:
 
             for g in self.goblins:
                 g.update(dt,self.player.tile_col,self.player.tile_row)
-            for e in self.test_enemies:
-                e.update(dt,self.player.tile_col,self.player.tile_row)
             if not self.boss_defeated:
                 self.boss.update(dt,self.player.tile_col,self.player.tile_row)
             self.combat_cooldown=max(0.0,self.combat_cooldown-dt)
@@ -782,11 +640,8 @@ class GameScene:
                     and self._check_combat()):
                 return "combat"
             if (not self.player.moving and self.combat_cooldown<=0.0
-                    and self._check_test_combat()):
-                return "combat"
-            if (not self.player.moving and self.combat_cooldown<=0.0
                     and self._check_boss_combat()):
-                return "boss_combat" 
+                return "boss_combat"
 
             ox=self.camera.ox; oy=self.camera.oy
             ts=TILE_SIZE
@@ -803,8 +658,6 @@ class GameScene:
                 chest.draw(self.screen,ox,oy,self.time)
             for g in self.goblins:
                 g.draw(self.screen,ox,oy)
-            for e in self.test_enemies:
-                e.draw(self.screen,ox,oy)
             if not self.boss_defeated:
                 self._draw_boss(ox,oy)
             self.player.draw(self.screen,ox,oy)
@@ -812,8 +665,7 @@ class GameScene:
             if self._nearby_exit:
                 ecx=ox+self.exit_tile.col*ts+ts//2
                 ecy=oy+self.exit_tile.row*ts
-                _draw_exit_prompt(self.screen,self.font_small,
-                                  ecx,ecy,self._nearby_exit.locked)
+                _draw_exit_prompt(self.screen,self.font_small,ecx,ecy,self._nearby_exit.locked)
             if self._nearby_door and self._nearby_door.locked:
                 dcx=ox+self._nearby_door.col*ts+ts//2
                 dcy=oy+self._nearby_door.row*ts
@@ -823,55 +675,43 @@ class GameScene:
                 ccy=oy+self._nearby_chest.row*ts
                 _draw_e_prompt(self.screen,self.font_small,ccx,ccy)
 
-            # Potion hint
             from src.scenes.chest_scene import PotionItem
             if self.inventory.has(PotionItem):
                 count = self.inventory.count(PotionItem)
-                ph_s  = self.font_small.render(
-                    f"[ P ]  Use Potion  (x{count})", True, (160,210,140))
-                ph_bg = pygame.Surface((ph_s.get_width()+16,ph_s.get_height()+8),
-                                       pygame.SRCALPHA)
+                ph_s  = self.font_small.render(f"[ P ]  Use Potion  (x{count})", True, (160,210,140))
+                ph_bg = pygame.Surface((ph_s.get_width()+16,ph_s.get_height()+8),pygame.SRCALPHA)
                 ph_bg.fill((10,8,5,160))
-                phx = self.W - ph_s.get_width() - 28
-                phy = self.H - 80
+                phx = self.W - ph_s.get_width() - 28; phy = self.H - 80
                 self.screen.blit(ph_bg,(phx-8,phy-4))
                 self.screen.blit(ph_s,(phx,phy))
 
             self.screen.blit(self.vignette,(0,0))
 
-            # Potion use message
             if self._potion_msg and self._potion_msg_timer > 0:
                 alpha = min(1.0, self._potion_msg_timer / 0.4)
                 col   = (120,210,120) if "Used" in self._potion_msg else (210,100,80)
                 ms    = self.font_small.render(self._potion_msg, True, col)
-                bg    = pygame.Surface((ms.get_width()+20,ms.get_height()+8),
-                                       pygame.SRCALPHA)
+                bg    = pygame.Surface((ms.get_width()+20,ms.get_height()+8),pygame.SRCALPHA)
                 bg.fill((10,8,5,int(200*alpha)))
-                bx2   = self.W//2-bg.get_width()//2
-                by2   = self.H-90
+                bx2   = self.W//2-bg.get_width()//2; by2 = self.H-90
                 self.screen.blit(bg,(bx2,by2))
                 pygame.draw.rect(self.screen,col,(bx2,by2,bg.get_width(),bg.get_height()),1)
                 ms.set_alpha(int(255*alpha))
                 self.screen.blit(ms,(bx2+10,by2+4))
 
-            # HUD
-            # Sync gold to game_state for HUD display
             if self.game_state:
                 from src.scenes.chest_scene import GoldItem
                 gold = sum(self.inventory.stack_count(it)
-                           for it in self.inventory.items
-                           if isinstance(it, GoldItem))
+                           for it in self.inventory.items if isinstance(it, GoldItem))
                 self.game_state.gold_collected = gold
 
             if self._hud and self.player_stats and self.game_state:
                 self._hud.update(dt, self.player_stats, self.game_state)
-                boss_alive = not self.boss_defeated
                 self._hud.draw(
-                    self.player_stats,
-                    self.game_state,
+                    self.player_stats, self.game_state,
                     goblins_remaining=len(self.goblins),
                     location_name="Dungeon — Ashenvale",
-                    boss_alive=boss_alive,
+                    boss_alive=not self.boss_defeated,
                 )
 
             pygame.display.flip()

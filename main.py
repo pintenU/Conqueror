@@ -2,7 +2,7 @@ import pygame
 import sys
 import math
 
-from src.ui.menu import MenuScene   # keep for now but we replace it
+from src.ui.menu import MenuScene
 from src.scenes.main_menu_scene import MainMenuScene
 from src.scenes.game_scene import GameScene
 from src.scenes.combat_scene import CombatScene
@@ -40,17 +40,6 @@ def _make_game_scene(screen, inventory, exit_unlocked=False,
     return gs
 
 
-def _pause(screen, scene_stack):
-    """
-    Show the pause menu. Returns:
-      "continue"  — resume
-      "main_menu" — drop to main menu
-      "exit"      — quit
-    """
-    result = MainMenuScene(screen, mode="pause").run()
-    return result
-
-
 def main():
     pygame.init()
     pygame.mixer.init()
@@ -63,35 +52,29 @@ def main():
     player_stats    = PlayerStats()
     quest_manager   = QuestManager()
     game_scene      = None
-    pre_inv_scene   = "game"   # scene before inventory was opened
-    town_idx        = 0           # which area we were at in town
+    pre_inv_scene   = "game"
+    town_idx        = 0
     combat          = None
     dungeon_cleared = False
     prev_scene      = "menu"
-    game_state      = GameState()   # live stats tracker
-    _playtime_clock = 0.0           # seconds since last tick
+    game_state      = GameState()
 
-    # ------------------------------------------------------------------ #
-    # Start at main menu
-    # ------------------------------------------------------------------ #
     scene = "main_menu"
 
     import time as _time
     _last_tick = _time.time()
 
     while True:
-        # Tick playtime
         _now = _time.time()
         game_state.playtime_seconds += _now - _last_tick
         _last_tick = _now
 
         # ----------------------------------------------------------------
-        # Main menu (startup)
+        # Main menu
         # ----------------------------------------------------------------
         if scene == "main_menu":
             result = MainMenuScene(screen, mode="start").run()
             if result == "new_game":
-                # Reset everything for a fresh run
                 inventory       = Inventory()
                 armour          = ArmourSystem()
                 player_stats    = PlayerStats()
@@ -105,13 +88,12 @@ def main():
                 break
 
         # ----------------------------------------------------------------
-        # Saves (from main menu — load only)
+        # Saves
         # ----------------------------------------------------------------
         elif scene == "saves":
             result = SavesScene(screen, game_state=None, mode="load").run()
             if isinstance(result, tuple) and result[0] == "loaded":
                 loaded_state = result[1]
-                # Start fresh inventory and restore from save
                 inventory       = Inventory()
                 restore(loaded_state, inventory)
                 game_state      = loaded_state
@@ -123,14 +105,13 @@ def main():
                 scene = "main_menu"
 
         # ----------------------------------------------------------------
-        # Pause menu (accessible from anywhere)
+        # Pause menu
         # ----------------------------------------------------------------
         elif scene == "pause":
             result = MainMenuScene(screen, mode="pause").run()
             if result == "continue":
                 scene = prev_scene
             elif result == "saves":
-                # Capture current state for saving
                 game_state.player_max_hp = player_stats.max_hp
                 capture(game_state, inventory, game_scene, dungeon_cleared,
                         "dungeon" if prev_scene == "game" else "town", armour, player_stats, quest_manager)
@@ -152,7 +133,7 @@ def main():
                 break
 
         # ----------------------------------------------------------------
-        # Dungeon
+        # Dungeon — first entry
         # ----------------------------------------------------------------
         elif scene == "start":
             game_scene = _make_game_scene(screen, inventory, dungeon_cleared, player_stats, game_state)
@@ -175,6 +156,9 @@ def main():
             else:
                 scene = result
 
+        # ----------------------------------------------------------------
+        # Dungeon — returning
+        # ----------------------------------------------------------------
         elif scene == "game":
             if game_scene is None:
                 game_scene = _make_game_scene(screen, inventory, dungeon_cleared, player_stats, game_state)
@@ -211,7 +195,6 @@ def main():
                 game_state.player_hp = game_state.player_max_hp
                 scene = "death"
             elif result == "loot":
-                # Boss defeated — mark it
                 game_scene.boss_defeated = True
                 game_state.enemies_defeated += 1
                 quest_manager.on_boss_killed('goblin_king')
@@ -222,34 +205,26 @@ def main():
                 for new_level in leveled:
                     LevelUpScene(screen, player_stats, new_level).run()
                     game_state.player_max_hp = player_stats.max_hp
-                loot = getattr(combat,'_goblin_loot',[])
-                # Boss always drops good loot
                 combat._goblin_loot = factory_loot('goblin_king')
                 scene = "loot"
             else:
                 scene = "game"
 
         elif scene == "combat":
-            # Check if this is a test enemy combat
-            _enemy_type = None
-            if game_scene and game_scene._active_test_enemy:
-                _enemy_type = game_scene._active_test_enemy.enemy_type.lower().replace(" ","_")
             combat = CombatScene(screen, inventory, armour=armour,
                                  player_hp=game_state.player_hp,
-                                 player_stats=player_stats,
-                                 enemy_type=_enemy_type)
+                                 player_stats=player_stats)
             prev_scene = "game"
             result     = combat.run()
             if game_scene:
                 game_scene.combat_cooldown = game_scene.COMBAT_COOLDOWN
-            # Persist HP change from combat
             if combat:
                 game_state.player_hp = combat.player_hp
 
             if result == "pause":
                 scene = "pause"
             elif result == "death":
-                game_state.player_hp = game_state.player_max_hp  # reset on death
+                game_state.player_hp = game_state.player_max_hp
                 scene = "death"
             elif result == "loot":
                 if game_scene and game_scene.goblins:
@@ -261,29 +236,14 @@ def main():
                         key=lambda i: math.hypot(
                             game_scene.goblins[i].px+ts//2-pcx,
                             game_scene.goblins[i].py+ts//2-pcy))
-                    defeated = game_scene.goblins.pop(idx)
-
-                    pass  # key drop guarantee removed — keys in chests
-                if result == "loot":
-                    game_state.enemies_defeated += 1
-                    # Check if it was a test enemy
-                    _exp = EXP_GOBLIN
-                    if game_scene and game_scene._active_test_enemy:
-                        e = game_scene._active_test_enemy
-                        if e in game_scene.test_enemies:
-                            game_scene.test_enemies.remove(e)
-                        from src.entities.entity_factory import get_stat
-                        _exp = get_stat(e.definition["name"].lower().replace(" ","_"), "exp") or EXP_GOBLIN
-                        combat._goblin_loot = factory_loot(
-                            e.definition["name"].lower().replace(" ","_"))
-                        game_scene._active_test_enemy = None
-                    leveled = player_stats.add_exp(_exp)
-                    for new_level in leveled:
-                        LevelUpScene(screen, player_stats, new_level).run()
-                        game_state.player_hp = min(game_state.player_hp,
-                                                   player_stats.max_hp)
-                        game_state.player_max_hp = player_stats.max_hp
-                scene = "loot" if result == "loot" else "game"
+                    game_scene.goblins.pop(idx)
+                game_state.enemies_defeated += 1
+                leveled = player_stats.add_exp(EXP_GOBLIN)
+                for new_level in leveled:
+                    LevelUpScene(screen, player_stats, new_level).run()
+                    game_state.player_hp = min(game_state.player_hp, player_stats.max_hp)
+                    game_state.player_max_hp = player_stats.max_hp
+                scene = "loot"
             else:
                 scene = "game"
 
@@ -348,7 +308,6 @@ def main():
         # Town
         # ----------------------------------------------------------------
         elif scene == "town":
-            # Autosave slot 0 when arriving in town
             game_state.player_max_hp = player_stats.max_hp
             capture(game_state, inventory, game_scene, dungeon_cleared, "town", armour, player_stats, quest_manager)
             save_slot(0, game_state)
@@ -357,16 +316,10 @@ def main():
             result, town_idx = raw if isinstance(raw, tuple) else (raw, 0)
 
             if result == "start":
-                # Remember we were at dungeon entrance (last area)
+                # Enter dungeon — do NOT run inline, go to "game" scene properly
                 game_scene = _make_game_scene(screen, inventory, dungeon_cleared, player_stats, game_state)
                 prev_scene = "game"
-                r2 = game_scene.run()
-                if r2 == "town" and not game_scene.exit_tile.locked:
-                    dungeon_cleared = True
-                if r2 in ("town","menu","pause"):
-                    game_scene = None
-                scene = "town" if r2 in ("town","menu","pause") else \
-                        "pause" if r2 == "pause" else r2
+                scene = "game"
             elif result == "inventory":
                 prev_scene = "town"
                 pre_inv_scene = "town"
@@ -410,10 +363,19 @@ def main():
         # ----------------------------------------------------------------
         # World map
         # ----------------------------------------------------------------
+        elif scene == "world_map":
+            destination = WorldMapScene(screen, "Ashenvale").run()
+            if destination == "exit":
+                scene = "exit"
+            else:
+                scene = "town"
+
+        # ----------------------------------------------------------------
+        # Death
+        # ----------------------------------------------------------------
         elif scene == "death":
             result = DeathScene(screen).run()
             if result == "load_save":
-                # Load the autosave (slot 0) or most recent slot
                 loaded = None
                 for slot in range(3):
                     s2 = load_slot(slot)
@@ -428,11 +390,13 @@ def main():
                     game_scene  = None
                     scene = "town" if loaded.current_location == "town" else "start"
                 else:
-                    # No save exists — back to main menu
                     scene = "main_menu"
             else:
                 scene = "main_menu"
 
+        # ----------------------------------------------------------------
+        # Armour
+        # ----------------------------------------------------------------
         elif scene == "armour":
             result = ArmourScene(screen, inventory, armour).run()
             if result == "exit":
@@ -441,13 +405,6 @@ def main():
                 scene = "inventory"
             else:
                 scene = pre_inv_scene
-
-        elif scene == "world_map":
-            destination = WorldMapScene(screen, "Ashenvale").run()
-            if destination == "exit":
-                scene = "exit"
-            else:
-                scene = "town"
 
         # ----------------------------------------------------------------
         # Exit

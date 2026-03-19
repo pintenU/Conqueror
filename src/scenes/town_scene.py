@@ -936,36 +936,340 @@ def _bg_antiquity(surf, W, H, rng, time):
 
 
 def _bg_dungeon(surf, W, H, rng, time):
-    _draw_sky(surf,W,H,(30,22,18),(62,48,38),(35,28,18))
+    ground = H*2//3
+
+    # Dark foreboding sky — gradient from near-black to deep bruised purple at horizon
+    for y in range(H):
+        t = y/H
+        if t < 0.55:
+            r = int(12+16*t); g = int(8+10*t); b = int(16+14*t)
+        else:
+            r = int(20+28*(t-0.55)); g = int(13+10*(t-0.55)); b = int(22+12*(t-0.55))
+        pygame.draw.line(surf,(r,g,b),(0,y),(W,y))
+
+    # Distant blighted mountains — slightly lighter than sky so they read
+    mountain_pts_l = [(0,ground),(0,ground-70),(W//10,ground-105),(W//6,ground-85),
+                      (W//4,ground-130),(W*3//10,ground-95),(W//3,ground-60),(W//3,ground)]
+    pygame.draw.polygon(surf,(32,22,18),mountain_pts_l)
+    mountain_pts_r = [(W,ground),(W,ground-70),(W*9//10,ground-100),(W*5//6,ground-82),
+                      (W*3//4,ground-128),(W*7//10,ground-92),(W*2//3,ground-58),(W*2//3,ground)]
+    pygame.draw.polygon(surf,(28,18,14),mountain_pts_r)
+
+    # Dark ground — draw BEFORE trees so trees sit on top
+    for y in range(ground, H):
+        t=(y-ground)/(H-ground)
+        pygame.draw.line(surf,(int(28+10*t),int(20+6*t),int(14+4*t)),(0,y),(W,y))
     _draw_stone_road(surf,W,H,rng)
-    aw = 120; ax = W//2-aw//2; ay = H//2-130
-    pygame.draw.rect(surf,(62,50,35),(ax-18,ay,18,180))
-    pygame.draw.rect(surf,(48,38,24),(ax-18,ay,18,180),2)
-    pygame.draw.rect(surf,(62,50,35),(ax+aw,ay,18,180))
-    pygame.draw.rect(surf,(48,38,24),(ax+aw,ay,18,180),2)
-    pygame.draw.arc(surf,(62,50,35),(ax-18,ay-60,aw+36,120),0,math.pi,16)
-    vsurf=pygame.Surface((aw,H//3+20),pygame.SRCALPHA)
-    vsurf.fill((4,3,2,245))
-    surf.blit(vsurf,(ax,ay))
+
+    # Dead leafless trees — drawn AFTER ground so they're visible
+    def _dead_tree(sx, sy, seed, flip=False):
+        trng = random.Random(seed)
+        # Trunk
+        pygame.draw.line(surf,(52,38,24),(sx,sy),(sx,sy-100),6)
+        pygame.draw.line(surf,(52,38,24),(sx,sy-100),(sx,sy-130),4)
+        # Main branches
+        branches = [(-32,-60,20,-88),(-18,-80,26,-108),(22,-52,-20,-80),(14,-74,-26,-98)]
+        for bx1,by1,bx2,by2 in branches:
+            if flip: bx1,bx2=-bx1,-bx2
+            pygame.draw.line(surf,(45,32,18),(sx+bx1,sy+by1),(sx+bx2,sy+by2),3)
+            mx=(bx1+bx2)//2; my=(by1+by2)//2
+            ox=trng.randint(-16,16); oy=trng.randint(-24,-6)
+            pygame.draw.line(surf,(40,28,14),(sx+mx,sy+my),(sx+mx+ox,sy+my+oy),2)
+
+    _dead_tree(W//2-240, ground, 11)
+    _dead_tree(W//2+210, ground, 22, flip=True)
+    _dead_tree(W//2-400, ground+8, 33)
+    _dead_tree(W//2+370, ground+8, 44, flip=True)
+
+    # Main dungeon entrance structure
+    # Central tower — tall and wide
+    tw2=110; th2=235; tx3=W//2-tw2//2; ty3=ground-th2
+    pygame.draw.rect(surf,(52,40,26),(tx3,ty3,tw2,th2))
+    pygame.draw.rect(surf,(35,26,14),(tx3,ty3,tw2,th2),3)
+    blk_rng=random.Random(77)
+    for row in range(11):
+        for col in range(4):
+            bsx=tx3+3+col*(tw2//4); bsy=ty3+4+row*(th2//11)
+            v2=blk_rng.randint(-6,6)
+            pygame.draw.rect(surf,(46+v2,35+v2,22+v2),(bsx,bsy,tw2//4-4,th2//11-3),1)
+    # Battlements
+    for i,intact in enumerate([True,False,True,True,False,True]):
+        if intact:
+            pygame.draw.rect(surf,(52,40,26),(tx3+i*18,ty3-18,14,20))
+            pygame.draw.rect(surf,(35,26,14),(tx3+i*18,ty3-18,14,20),1)
+    # Tower cracks
+    pygame.draw.line(surf,(26,16,8),(tx3+tw2//3,ty3+20),(tx3+tw2//3-10,ty3+th2//3),2)
+
+    # Ruined wall wings — taller, framing the tower properly
+    wing_h_base = 95
+    for col in range(7):
+        bw2=38
+        # Left wing — gets shorter as it goes left
+        height_l = max(40, wing_h_base - col*8 + blk_rng.randint(-10,10))
+        bx3=tx3-14-(col+1)*bw2; by3=ground-height_l
+        v=blk_rng.randint(-8,8)
+        pygame.draw.rect(surf,(52+v,40+v,26+v),(bx3,by3,bw2,height_l))
+        pygame.draw.rect(surf,(36+v,26+v,14+v),(bx3,by3,bw2,height_l),2)
+        for row in range(height_l//18):
+            pygame.draw.line(surf,(30,20,10),(bx3,by3+row*18),(bx3+bw2,by3+row*18),1)
+        # Right wing — mirror
+        bx3r=tx3+tw2+14+col*bw2; by3r=ground-height_l
+        pygame.draw.rect(surf,(52+v,40+v,26+v),(bx3r,by3r,bw2,height_l))
+        pygame.draw.rect(surf,(36+v,26+v,14+v),(bx3r,by3r,bw2,height_l),2)
+        for row in range(height_l//18):
+            pygame.draw.line(surf,(30,20,10),(bx3r,by3r+row*18),(bx3r+bw2,by3r+row*18),1)
+
+    # Arch gateway — centred in tower, large and prominent
+    aw2=78; ax2=W//2-aw2//2; arch_top=ground-158
+    # Pure void inside arch
+    pygame.draw.rect(surf,(3,2,1),(ax2,arch_top,aw2,ground-arch_top))
+    pygame.draw.arc(surf,(3,2,1),(ax2,arch_top-aw2//2,aw2,aw2),0,math.pi,aw2//2)
+    # Thick stone surround
+    pygame.draw.arc(surf,(62,48,30),(ax2-8,arch_top-aw2//2-8,aw2+16,aw2+16),0,math.pi,9)
+    pygame.draw.arc(surf,(44,32,16),(ax2-13,arch_top-aw2//2-13,aw2+26,aw2+26),0,math.pi,4)
+    # Arch side pillars
+    for px4,pw2 in [(ax2-16,16),(ax2+aw2,16)]:
+        pygame.draw.rect(surf,(50,38,24),(px4,arch_top,pw2,ground-arch_top))
+        pygame.draw.rect(surf,(34,24,12),(px4,arch_top,pw2,ground-arch_top),2)
+
+    # Keystone skull
+    kx=W//2; ky=arch_top-aw2//2-6
+    pygame.draw.polygon(surf,(68,52,32),[(kx-11,ky-8),(kx+11,ky-8),(kx+7,ky+14),(kx-7,ky+14)])
+    pygame.draw.polygon(surf,(38,28,14),[(kx-11,ky-8),(kx+11,ky-8),(kx+7,ky+14),(kx-7,ky+14)],2)
+    pygame.draw.circle(surf,(160,145,125),(kx,ky+2),6)
+    for ex2 in [kx-3,kx+3]:
+        pygame.draw.circle(surf,(14,8,4),(ex2,ky+1),2)
+
+    # Subtle red glow — contained inside/near the arch, NOT a giant ellipse
+    pulse=0.4+0.35*math.sin(time*1.8)
+    # Inner glow — small, close to arch base
+    inner=pygame.Surface((aw2-10,50),pygame.SRCALPHA)
+    pygame.draw.ellipse(inner,(int(200*pulse),int(22*pulse),int(16*pulse),int(130*pulse)),
+                        (0,0,aw2-10,50))
+    surf.blit(inner,(ax2+5,ground-55),special_flags=pygame.BLEND_RGBA_ADD)
+    # Floor glow — very faint bleed onto road
+    floor_g=pygame.Surface((aw2+30,30),pygame.SRCALPHA)
+    pygame.draw.ellipse(floor_g,(int(120*pulse),int(14*pulse),10,int(60*pulse)),
+                        (0,0,aw2+30,30))
+    surf.blit(floor_g,(ax2-15,ground-20),special_flags=pygame.BLEND_RGBA_ADD)
+
+    # Steps down into entrance
     for i in range(4):
-        sw=aw-i*12; sx=ax+i*6; sy=ay+H//3-i*12
-        pygame.draw.rect(surf,(52,42,28),(sx,sy,sw,10))
-    pulse=0.4+0.4*math.sin(time*2.2)
-    gsurf=pygame.Surface((aw,80),pygame.SRCALPHA)
-    pygame.draw.ellipse(gsurf,(int(160*pulse),int(20*pulse),int(20*pulse),
-                                int(80*pulse)),(0,0,aw,80))
-    surf.blit(gsurf,(ax,ay+H//3-50))
-    skx,sky=W//2,ay-28
-    pygame.draw.circle(surf,(175,165,148),(skx,sky),18)
-    pygame.draw.circle(surf,(38,28,16),(skx,sky),18,2)
-    pygame.draw.line(surf,(38,28,16),(skx-6,sky),(skx+6,sky),2)
-    for ex in [skx-7,skx+7]:
-        pygame.draw.circle(surf,(18,12,8),(ex,sky-2),5)
-    for tx,side in [(ax-80,1),(ax+aw+80,-1)]:
-        pygame.draw.line(surf,(55,42,25),(tx,H*2//3),(tx,H//2-40),4)
-        for i in range(3):
-            bx2=tx+side*(15+i*12); by2=H//2-20-i*25
-            pygame.draw.line(surf,(50,38,22),(tx,by2),(bx2,by2-10),2)
+        sw2=aw2-i*8+6; sx2=W//2-sw2//2; sy2=ground-8-i*11
+        pygame.draw.rect(surf,(40+i*3,28+i*2,16+i),(sx2,sy2,sw2,12))
+        pygame.draw.rect(surf,(26,16,8),(sx2,sy2,sw2,12),1)
+
+    # Hanging chains on arch
+    for chx in [ax2+8, ax2+aw2-8]:
+        for ci in range(4):
+            cy3=arch_top+ci*20
+            pygame.draw.ellipse(surf,(52,40,22),(chx-3,cy3,7,11))
+            pygame.draw.ellipse(surf,(36,26,12),(chx-3,cy3,7,11),1)
+
+    # Skull pile — base of arch, left side
+    for skx2,sky2,skr in [(ax2-22,ground-8,7),(ax2-33,ground-18,6),(ax2-14,ground-20,8)]:
+        pygame.draw.circle(surf,(148,135,118),(skx2,sky2),skr)
+        pygame.draw.circle(surf,(28,18,8),(skx2,sky2),skr,1)
+        for ex2 in [skx2-skr//3,skx2+skr//3]:
+            pygame.draw.circle(surf,(14,8,4),(ex2,sky2-1),max(2,skr//3))
+
+    # Wall torches — animated, flanking the arch
+    for tcx2,tside2 in [(ax2-28,-1),(ax2+aw2+10,1)]:
+        tcy2=arch_top+35
+        pygame.draw.line(surf,(60,42,22),(tcx2,tcy2),(tcx2+tside2*10,tcy2+10),3)
+        pygame.draw.rect(surf,(68,48,24),(tcx2-3,tcy2-20,6,22))
+        tp=0.65+0.35*math.sin(time*4.0+tcx2*0.03)
+        pygame.draw.polygon(surf,(int(235*tp),int(115*tp),18),[
+            (tcx2-5,tcy2-20),(tcx2,tcy2-38),(tcx2+5,tcy2-20)])
+        pygame.draw.polygon(surf,(255,int(190*tp),45),[
+            (tcx2-2,tcy2-20),(tcx2,tcy2-32),(tcx2+2,tcy2-20)])
+        tgs=pygame.Surface((30,30),pygame.SRCALPHA)
+        pygame.draw.circle(tgs,(int(195*tp),int(88*tp),14,int(65*tp)),(15,15),13)
+        surf.blit(tgs,(tcx2-15,tcy2-38),special_flags=pygame.BLEND_RGBA_ADD)
+
+    # Warning plaque — above arch, clearly readable
+    pw3=124; ph3=22; px5=W//2-pw3//2; py5=arch_top-aw2//2-38
+    pygame.draw.rect(surf,(50,38,22),(px5,py5,pw3,ph3))
+    pygame.draw.rect(surf,(34,24,10),(px5,py5,pw3,ph3),2)
+    sf=pygame.font.SysFont("courier new",10,bold=True)
+    ws=sf.render("ENTER AT YOUR PERIL",True,(148,95,40))
+    surf.blit(ws,(W//2-ws.get_width()//2,py5+5))
+
+    # Distant blighted mountains — jagged silhouettes
+    mountain_pts_l = [(0,ground),(0,ground-80),(W//8,ground-120),(W//5,ground-95),
+                      (W//4,ground-145),(W//3,ground-105),(W//3,ground)]
+    pygame.draw.polygon(surf,(28,18,14),mountain_pts_l)
+    mountain_pts_r = [(W,ground),(W,ground-80),(W*7//8,ground-115),(W*3//4,ground-90),
+                      (W*2//3,ground-140),(W*3//5,ground-100),(W*3//5,ground)]
+    pygame.draw.polygon(surf,(22,14,10),mountain_pts_r)
+
+    # Dead leafless trees — left and right, large and twisted
+    def _dead_tree(sx, sy, seed, flip=False):
+        trng = random.Random(seed)
+        pygame.draw.line(surf,(48,36,22),(sx,sy),(sx,sy-95),5)
+        branches = [(-28,-65,18,-90),(-14,-80,22,-105),
+                    (20,-50,-18,-78),(12,-72,-24,-95)]
+        for bx1,by1,bx2,by2 in branches:
+            if flip: bx1,bx2=-bx1,-bx2
+            pygame.draw.line(surf,(42,30,18),(sx+bx1,sy+by1),(sx+bx2,sy+by2),3)
+            # Smaller sub-branches
+            mx=(bx1+bx2)//2; my=(by1+by2)//2
+            pygame.draw.line(surf,(38,26,14),(sx+mx,sy+my),
+                             (sx+mx+trng.randint(-14,14),sy+my+trng.randint(-22,-8)),2)
+
+    _dead_tree(W//2-220, ground, 11)
+    _dead_tree(W//2+200, ground, 22, flip=True)
+    _dead_tree(W//2-370, ground+8, 33)
+    _dead_tree(W//2+350, ground+8, 44, flip=True)
+
+    # Dark ground
+    for y in range(ground, H):
+        t=(y-ground)/(H-ground)
+        pygame.draw.line(surf,(int(28+10*t),int(20+6*t),int(14+4*t)),(0,y),(W,y))
+    # Cracked earth texture
+    crack_rng = random.Random(99)
+    for _ in range(18):
+        cx2=crack_rng.randint(0,W); cy2=crack_rng.randint(ground,H)
+        pygame.draw.line(surf,(22,14,8),(cx2,cy2),
+                         (cx2+crack_rng.randint(-30,30),cy2+crack_rng.randint(-12,12)),1)
+
+    # Stone road — darker, more worn
+    _draw_stone_road(surf,W,H,rng)
+    # Road grime overlay
+    for y in range(ground, H):
+        v=rng.randint(-6,6)
+        pygame.draw.line(surf,(28+v,20+v,14+v),(0,y),(W,y))
+    _draw_stone_road(surf,W,H,rng)
+
+    # Main dungeon entrance structure — large ruined stone facade
+    fw = 320; fh = 210
+    fx = W//2-fw//2; fy = ground-fh
+
+    # Ruined wall left wing
+    for col in range(6):
+        bw2=44; bh2=rng.randint(55,90)
+        bx3=fx+col*(bw2+2); by3=fy+fh-bh2
+        v=rng.randint(-8,8)
+        pygame.draw.rect(surf,(55+v,42+v,28+v),(bx3,by3,bw2,bh2))
+        pygame.draw.rect(surf,(38+v,28+v,16+v),(bx3,by3,bw2,bh2),2)
+        # Stone row lines
+        for row in range(bh2//18):
+            pygame.draw.line(surf,(32,22,12),(bx3,by3+row*18),(bx3+bw2,by3+row*18),1)
+    # Ruined wall right wing
+    for col in range(6):
+        bw2=44; bh2=rng.randint(55,90)
+        bx3=W//2+44+col*(bw2+2); by3=fy+fh-bh2
+        v=rng.randint(-8,8)
+        pygame.draw.rect(surf,(55+v,42+v,28+v),(bx3,by3,bw2,bh2))
+        pygame.draw.rect(surf,(38+v,28+v,16+v),(bx3,by3,bw2,bh2),2)
+        for row in range(bh2//18):
+            pygame.draw.line(surf,(32,22,12),(bx3,by3+row*18),(bx3+bw2,by3+row*18),1)
+
+    # Central tower — tall, imposing, partially intact
+    tw2=110; th2=fh+55; tx3=W//2-tw2//2; ty3=fy-55
+    pygame.draw.rect(surf,(52,40,26),(tx3,ty3,tw2,th2))
+    pygame.draw.rect(surf,(35,26,14),(tx3,ty3,tw2,th2),3)
+    # Block texture
+    blk_rng=random.Random(77)
+    for row in range(12):
+        for col in range(4):
+            bsx=tx3+3+col*(tw2//4); bsy=ty3+4+row*(th2//12)
+            v2=blk_rng.randint(-6,6)
+            pygame.draw.rect(surf,(46+v2,35+v2,22+v2),(bsx,bsy,tw2//4-4,th2//12-3),1)
+    # Tower top — partially collapsed battlements
+    for i,intact in enumerate([True,False,True,True,False,True]):
+        if intact:
+            pygame.draw.rect(surf,(52,40,26),(tx3+i*18,ty3-18,14,20))
+            pygame.draw.rect(surf,(35,26,14),(tx3+i*18,ty3-18,14,20),1)
+    # Tower cracks
+    pygame.draw.line(surf,(28,18,8),(tx3+tw2//3,ty3),(tx3+tw2//3-8,ty3+th2//3),2)
+    pygame.draw.line(surf,(28,18,8),(tx3+tw2*2//3,ty3+20),(tx3+tw2*2//3+6,ty3+80),1)
+
+    # Arch gateway — grand and ominous
+    aw2=96; ax2=W//2-aw2//2; arch_top=fy+fh-160
+    # Absolute void inside
+    pygame.draw.rect(surf,(2,1,1),(ax2,arch_top,aw2,ground-arch_top))
+    pygame.draw.arc(surf,(2,1,1),(ax2,arch_top-aw2//2,aw2,aw2),0,math.pi,aw2//2)
+    # Stone arch surround — thick, decorative
+    pygame.draw.arc(surf,(58,44,28),(ax2-8,arch_top-aw2//2-8,aw2+16,aw2+16),0,math.pi,10)
+    pygame.draw.arc(surf,(42,30,16),(ax2-14,arch_top-aw2//2-14,aw2+28,aw2+28),0,math.pi,4)
+    # Carved warning runes above arch
+    rune_y=arch_top-aw2//2-22
+    for rx2 in range(ax2-6,ax2+aw2+6,12):
+        rv=blk_rng.randint(0,2)
+        if rv==0:   pygame.draw.line(surf,(80,55,30),(rx2,rune_y),(rx2,rune_y+10),2)
+        elif rv==1: pygame.draw.line(surf,(80,55,30),(rx2,rune_y+2),(rx2+8,rune_y+8),1)
+        else:       pygame.draw.rect(surf,(80,55,30),(rx2,rune_y+3,6,6),1)
+    # Keystone with skull motif
+    kx=W//2; ky=arch_top-aw2//2-8
+    pygame.draw.polygon(surf,(68,52,32),[(kx-12,ky-10),(kx+12,ky-10),(kx+8,ky+16),(kx-8,ky+16)])
+    pygame.draw.polygon(surf,(38,28,14),[(kx-12,ky-10),(kx+12,ky-10),(kx+8,ky+16),(kx-8,ky+16)],2)
+    pygame.draw.circle(surf,(165,148,128),(kx,ky+2),7)
+    pygame.draw.circle(surf,(32,22,10),(kx,ky+2),7,1)
+    for ex2 in [kx-3,kx+3]:
+        pygame.draw.circle(surf,(16,10,6),(ex2,ky+1),2)
+
+    # Arch side pillars — carved stone
+    for px4,pw2 in [(ax2-18,18),(ax2+aw2,18)]:
+        pygame.draw.rect(surf,(48,36,22),(px4,arch_top,pw2,ground-arch_top))
+        pygame.draw.rect(surf,(34,24,12),(px4,arch_top,pw2,ground-arch_top),2)
+        for row in range((ground-arch_top)//22):
+            pygame.draw.line(surf,(28,18,8),(px4,arch_top+row*22),(px4+pw2,arch_top+row*22),1)
+
+    # Red ominous glow from inside — pulsing
+    pulse=0.4+0.4*math.sin(time*1.8)
+    pulse2=0.3+0.3*math.sin(time*2.6+1.0)
+    gsurf=pygame.Surface((aw2+40,100),pygame.SRCALPHA)
+    pygame.draw.ellipse(gsurf,(int(180*pulse),int(18*pulse),int(14*pulse),int(100*pulse)),
+                        (0,0,aw2+40,100))
+    surf.blit(gsurf,(ax2-20,ground-100),special_flags=pygame.BLEND_RGBA_ADD)
+    # Flickering secondary glow
+    gsurf2=pygame.Surface((aw2,60),pygame.SRCALPHA)
+    pygame.draw.ellipse(gsurf2,(int(220*pulse2),int(30*pulse2),20,int(70*pulse2)),(0,0,aw2,60))
+    surf.blit(gsurf2,(ax2,ground-80),special_flags=pygame.BLEND_RGBA_ADD)
+
+    # Steps descending into darkness
+    for i in range(5):
+        sw2=aw2-i*10+10; sx2=W//2-sw2//2; sy2=ground-i*12
+        pygame.draw.rect(surf,(42+i*2,30+i,18+i),(sx2,sy2,sw2,11))
+        pygame.draw.rect(surf,(28,18,8),(sx2,sy2,sw2,11),1)
+
+    # Hanging chains on arch sides
+    for chx in [ax2+10, ax2+aw2-10]:
+        for ci in range(5):
+            cy3=arch_top+ci*18
+            pygame.draw.ellipse(surf,(55,42,25),(chx-4,cy3,8,12))
+            pygame.draw.ellipse(surf,(38,28,14),(chx-4,cy3,8,12),1)
+
+    # Skull pile at base of entrance — left side
+    for sk_i,(skx2,sky2,skr) in enumerate([(ax2-28,ground-10,8),(ax2-40,ground-20,7),
+                                              (ax2-18,ground-22,9)]):
+        pygame.draw.circle(surf,(155,142,125),(skx2,sky2),skr)
+        pygame.draw.circle(surf,(30,20,10),(skx2,sky2),skr,1)
+        for ex2 in [skx2-skr//3,skx2+skr//3]:
+            pygame.draw.circle(surf,(18,10,6),(ex2,sky2-1),max(2,skr//3))
+
+    # Wall-mounted torches flanking entrance — with animated flames
+    for tcx2,tside2 in [(ax2-32,-1),(ax2+aw2+14,1)]:
+        tcy2=arch_top+30
+        pygame.draw.line(surf,(62,44,24),(tcx2,tcy2+2),(tcx2+tside2*10,tcy2+12),3)
+        pygame.draw.rect(surf,(70,50,26),(tcx2-3,tcy2-18,6,20))
+        tp=0.65+0.35*math.sin(time*4.2+tcx2*0.03)
+        pygame.draw.polygon(surf,(int(230*tp),int(110*tp),15),[
+            (tcx2-5,tcy2-18),(tcx2,tcy2-34),(tcx2+5,tcy2-18)])
+        pygame.draw.polygon(surf,(255,int(180*tp),40),[
+            (tcx2-2,tcy2-18),(tcx2,tcy2-28),(tcx2+2,tcy2-18)])
+        tgs=pygame.Surface((32,32),pygame.SRCALPHA)
+        pygame.draw.circle(tgs,(int(200*tp),int(90*tp),15,int(60*tp)),(16,16),14)
+        surf.blit(tgs,(tcx2-16,tcy2-36),special_flags=pygame.BLEND_RGBA_ADD)
+
+    # "WARNING" carved stone plaque
+    pw3=110; ph3=26; px5=W//2-pw3//2; py5=fy+fh-195
+    pygame.draw.rect(surf,(48,36,22),(px5,py5,pw3,ph3))
+    pygame.draw.rect(surf,(32,22,10),(px5,py5,pw3,ph3),2)
+    sf=pygame.font.SysFont("courier new",11,bold=True)
+    ws=sf.render("ENTER AT YOUR PERIL",True,(155,100,45))
+    surf.blit(ws,(W//2-ws.get_width()//2,py5+6))
 
 
 def _draw_town_backdrop(surf, W, H, rng, exclude_self=True):
