@@ -33,6 +33,17 @@
       ],
       "loot_rolls": 2
     },
+    "goblin_chieftain": {
+    "name": "Goblin Chieftain",
+    "display_name": "GOBLIN CHIEFTAIN",
+    "hp": 28, "damage": 8, "exp": 55, "speed": 1.8,
+    "color": [60, 120, 40], "is_boss": false,
+      "loot_table": [
+    {"item": "GoldItem", "weight": 60, "amount": [15,20,25]},
+    {"item": "PotionItem", "weight": 40}
+  ],
+  "loot_rolls": 2
+    },  
     "skeleton": {
       "name": "Skeleton",
       "display_name": "SKELETON",

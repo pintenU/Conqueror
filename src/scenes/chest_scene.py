@@ -323,7 +323,99 @@ class ExitKeyItem(Item):
                          (cx+s//3,  cy-s//5),
                          (cx+s//3,  cy-s//5+s//7), 3)
 
+class FloorKeyItem(Item):
+    """Dropped by Goblin Chieftain — used at floor transition circles."""
+    def __init__(self):
+        super().__init__("Floor Key",
+                         "A heavy key engraved with stairs. Opens the next floor.",
+                         (180, 140, 60))
+        self.stackable = False
 
+    def draw_icon(self, surface, cx, cy, size):
+        s = size
+        pygame.draw.circle(surface, (160,120,40),(cx-s//4,cy-s//5),s//4+1)
+        pygame.draw.circle(surface, (200,160,60),(cx-s//4,cy-s//5),s//4)
+        pygame.draw.circle(surface, (70,50,15),  (cx-s//4,cy-s//5),s//9)
+        pygame.draw.line(surface,(220,180,70),
+                         (cx-s//4,cy-s//5-s//10),(cx-s//4,cy-s//5+s//10),2)
+        pygame.draw.polygon(surface,(220,180,70),[
+            (cx-s//4-4,cy-s//5+s//14),
+            (cx-s//4+4,cy-s//5+s//14),
+            (cx-s//4,  cy-s//5+s//6)])
+        pygame.draw.line(surface,(190,150,55),
+                         (cx-s//4+s//4,cy-s//5),(cx+s//3,cy-s//5),4)
+        pygame.draw.line(surface,(190,150,55),
+                         (cx+s//8,cy-s//5),(cx+s//8,cy-s//5+s//5),3)
+        pygame.draw.line(surface,(190,150,55),
+                         (cx+s//3,cy-s//5),(cx+s//3,cy-s//5+s//7),3)
+
+
+class BossKeyItem(Item):
+    """Dropped by the Goblin King — unlocks all special rooms and the exit."""
+    def __init__(self):
+        super().__init__("Boss Key",
+                         "A crown key. Unlocks special rooms and the dungeon exit.",
+                         (220, 50, 50))
+        self.stackable = False
+
+    def draw_icon(self, surface, cx, cy, size):
+        s = size
+        pygame.draw.circle(surface,(180,30,30),(cx-s//4,cy-s//5),s//4+1)
+        pygame.draw.circle(surface,(220,50,50),(cx-s//4,cy-s//5),s//4)
+        for ox2 in [-s//7,0,s//7]:
+            pygame.draw.polygon(surface,(220,185,50),[
+                (cx-s//4+ox2-3,cy-s//5-s//10),
+                (cx-s//4+ox2,  cy-s//5-s//5),
+                (cx-s//4+ox2+3,cy-s//5-s//10)])
+        for ox2,gc in [(-s//7,(255,80,80)),(0,(255,220,50)),(s//7,(80,150,255))]:
+            pygame.draw.circle(surface,gc,(cx-s//4+ox2,cy-s//5-s//8),max(2,s//20))
+        pygame.draw.line(surface,(200,50,50),
+                         (cx-s//4+s//4,cy-s//5),(cx+s//3,cy-s//5),4)
+        pygame.draw.line(surface,(200,50,50),
+                         (cx+s//8,cy-s//5),(cx+s//8,cy-s//5+s//5),3)
+        pygame.draw.line(surface,(200,50,50),
+                         (cx+s//3,cy-s//5),(cx+s//3,cy-s//5+s//7),3)
+        glow=pygame.Surface((s,s),pygame.SRCALPHA)
+        pygame.draw.ellipse(glow,(220,50,50,25),(0,0,s,s))
+        surface.blit(glow,(cx-s//2,cy-s//2))
+
+
+class StickItem(Item):
+    """Starting weapon found on the ground in the spawn room."""
+    WEAPON_NAMES  = ["Stick","Sharpened Stick","Carved Club",
+                     "Iron-tipped Club","War Club","Legendary Club"]
+    DAMAGE_VALUES = [3, 5, 7, 9, 11, 14]
+
+    def __init__(self):
+        super().__init__("Stick","A wooden stick. Deals 3 damage.",(120,90,50))
+        self.upgrade_level = 0
+        self.enchantment   = None
+
+    @property
+    def name(self):
+        return self.WEAPON_NAMES[min(self.upgrade_level,5)]
+    @name.setter
+    def name(self,v): pass
+
+    @property
+    def description(self):
+        dmg=self.DAMAGE_VALUES[min(self.upgrade_level,5)]
+        return f"Deals {dmg} damage."
+    @description.setter
+    def description(self,v): pass
+
+    def draw_icon(self,surface,cx,cy,size):
+        s=size
+        pygame.draw.line(surface,(140,105,60),
+                         (cx-s//2+4,cy+s//2-4),(cx+s//2-4,cy-s//2+4),5)
+        pygame.draw.line(surface,(170,130,80),
+                         (cx-s//2+6,cy+s//2-6),(cx+s//2-6,cy-s//2+6),2)
+        if self.upgrade_level>0:
+            pygame.draw.line(surface,(160,130,60),
+                             (cx-6,cy+4),(cx+6,cy-4),4)
+        if self.upgrade_level>=3:
+            pygame.draw.circle(surface,(160,140,100),
+                               (cx+s//2-6,cy-s//2+6),4)
 # ===========================================================================
 # Armour items
 # ===========================================================================
