@@ -95,9 +95,9 @@ def build_floor2():
         for c in range(3,10): g[r][c]=FLOOR
 
     ch(10,18,5,2)   # spawn→A: cols 10-14
-    ch(28,18,3,2)   # A→B:     cols 28-30
-    ch(41,17,3,2)   # B→C:     cols 41-43
-    ch(54,17,3,2)   # C→big:   cols 54-56
+    ch(28,18,4,2)   # A→B:     cols 28-31
+    ch(41,17,4,2)   # B→C:     cols 41-44
+    ch(54,17,4,2)   # C→big:   cols 54-57
     cv(35,23,3,2)   # B↓D:     rows 23-25
     cv(35,35,3,2)   # D↓:      rows 35-37
     ch(25,35,10,2)  # D↓E horizontal connector
@@ -112,7 +112,7 @@ def build_floor2():
         (14,35),(14,36),(11,35),(11,36),   # B↑special
         (22,35),(22,36),(26,35),(26,36),   # B↓D
         (34,35),(34,36),                   # D bottom
-        (35,25),(36,25),(38,25),(39,25),   # D→E connector
+        (35,25),(36,25),(37,25),(38,25),(39,25),(38,26),(39,26),   # D→E connector
         (41,20),(42,20),(41,19),(42,19)])  # E→floor circle
 
     return g
@@ -135,20 +135,21 @@ def build_floor3():
     for r in range(17,23):
         for c in range(3,10):
             g[r][c]=FLOOR
-    # Floor circle south
+    # Floor circle south — extended left to col 13 so return spawn (15,36) lands inside
     for r in range(34,40):
-        for c in range(16,22):
+        for c in range(13,22):
             g[r][c]=FLOOR
 
-    ch(11,19,3); ch(27,19,3); ch(52,19,3)
+    ch(10,19,5); ch(27,19,3); ch(52,19,3)  # spawn→hub: cols 10-14 (was 11-13, too short)
     cv(19,12,3); cv(19,25,9)
 
     # Open walls (row, col)
-    op([(19,9),(20,9),(19,13),(20,13),     # spawn→hub
+    op([(19,9),(20,9),(19,14),(20,14),     # spawn→hub (hub left wall col 14)
         (12,19),(13,19),(12,20),(13,20),   # hub↑special
         (14,19),(15,19),(14,20),(15,20),
         (19,26),(20,26),(19,30),(20,30),   # hub→big
         (19,51),(20,51),(19,55),(20,55),   # big→small
+        (24,19),(24,20),                   # hub bottom wall → floor circle corridor
         (33,19),(34,19),(33,20),(34,20)])  # hub↓floor circle
 
     return g
@@ -172,14 +173,15 @@ def build_floor4():
         for c in range(3,10):
             g[r][c]=FLOOR
 
-    ch(11,14,3); ch(27,14,3); ch(42,11,3)
+    ch(10,14,5); ch(27,14,3); ch(42,11,3)  # spawn→room1: cols 10-14 (was 11-13, too short)
     cv(35,20,8)
 
     # Open walls (row, col)
-    op([(14,9),(15,9),(14,13),(15,13),     # spawn→room1
+    op([(14,9),(15,9),(14,14),(15,14),     # spawn→room1 (room1 left wall col 14)
         (14,26),(15,26),(14,30),(15,30),   # room1→room2
         (11,44),(12,44),(11,45),(12,45),   # room2→special
-        (20,35),(21,35),(27,35),(28,35)])  # room2↓arena
+        (19,35),(19,36),                   # room2 bottom wall → arena corridor
+        (20,35),(21,35),(27,35),(28,35),(28,36)])  # room2↓arena (arena top wall)
 
     # Fill arena interior
     for r in range(29,51):
@@ -361,9 +363,9 @@ FLOOR_DATA = {
         "return_circle": (6, 20),   # return to Floor 2 — in spawn area
 
         "locked_doors": [
-            (27,19,'h',"key_hub_to_big"),
-            (52,19,'h',"key_big_to_small"),
-            (19,25,'v',"key_floor_circle"),
+            (27,19,'v',"key_hub_to_big"),    # blocks rows 19-20 at col 27 (2-wide corridor)
+            (52,19,'v',"key_big_to_small"),  # blocks rows 19-20 at col 52
+            (19,25,'h',"key_floor_circle"),  # blocks cols 19-20 at row 25
         ],
 
         "rooms": {
@@ -376,8 +378,13 @@ FLOOR_DATA = {
         "enemies": [
             ("goblin",           "hub",      1, "key_hub_to_big"),
             ("goblin",           "big_room", 7, "key_big_to_small"),
-            ("goblin_chieftain", "small",    1, "floor_key"),
+            ("goblin_chieftain", "small",    1, "floor_key"),    # also drops key_floor_circle
         ],
+
+        # Chieftain drops floor_key + key_floor_circle (unlocks path to the circle)
+        "extra_drops": {
+            "small": ["key_floor_circle"],
+        },
 
         "chests": [
             {"col":22,"row":19,"gold":False,"items":["potion","gold"]},
@@ -393,7 +400,7 @@ FLOOR_DATA = {
         ],
 
         "ground_items": [],
-        "boss_key_doors": [(19,12,'v')],
+        "boss_key_doors": [(19,12,'h')],   # blocks cols 19-20 at row 12 (full corridor width)
     },
 
     # ------- FLOOR 4 -------
@@ -404,12 +411,14 @@ FLOOR_DATA = {
         "return_circle": (6, 15),   # return to Floor 3 — in spawn area
 
         "locked_doors": [
-            (11,14,'h',"key_r1_to_r2"),
-            (29,13,'h',"key_r2_to_arena"),
-            (42,11,'h',"key_special"),
+            (11,14,'v',"key_spawn_to_r1"),  # blocks rows 14-15 at col 11 (spawn→room1)
+            (27,14,'v',"key_r1_to_r2"),     # blocks rows 14-15 at col 27 (room1→room2)
+            (42,11,'v',"key_special"),      # blocks rows 11-12 at col 42 (room2→special)
+            (35,20,'h',"key_r2_to_arena"),  # blocks cols 35-36 at row 20 (room2↓arena)
         ],
 
         "rooms": {
+            "spawn_area": [(c,r) for r in range(13,17) for c in range(4, 9)],
             "room1":   [(c,r) for r in range(11,19) for c in range(15,26)],
             "room2":   [(c,r) for r in range(11,19) for c in range(31,41)],
             "special": [(c,r) for r in range( 6,20) for c in range(46,74)],
@@ -417,8 +426,10 @@ FLOOR_DATA = {
         },
 
         "enemies": [
-            ("goblin",           "room1", 2, "key_r1_to_r2"),
-            ("goblin",           "room2", 1, "key_r2_to_arena"),
+            ("goblin",           "spawn_area", 1, "key_spawn_to_r1"), # drops key to room1
+            ("goblin",           "room1", 2, "key_r1_to_r2"),         # drops key to room2
+            ("goblin",           "room2", 1, "key_r2_to_arena"),      # drops key to arena
+            ("goblin",           "room2", 1, "key_special"),          # drops key to special room
             # Arena enemies — must all die before boss spawns
             ("goblin",           "arena", 3, None),
             ("goblin_chieftain", "arena", 1, None),
@@ -439,7 +450,7 @@ FLOOR_DATA = {
         ],
 
         "ground_items": [],
-        "boss_key_doors": [(42,11,'h')],
+        "boss_key_doors": [(42,11,'v')],   # blocks rows 11-12 at col 42
 
         # Boss arena specific
         "boss_spawn_col": 37,

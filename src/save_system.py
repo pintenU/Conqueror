@@ -28,7 +28,7 @@ class GameState:
         self.player_max_hp     = 30
         self.dungeon_cleared   = False
         self.current_location  = "dungeon"
-        self.player_floor      = 1        # which dungeon floor the player is on
+        self.player_floor      = 1
 
         self.inventory_data    = []
         self.door_states       = []
@@ -36,6 +36,9 @@ class GameState:
         self.armour_data       = {}
         self.stats_data        = {}
         self.quest_data        = {}
+        # floor_states: {floor_int: {"unlocked_doors": [list of key_ids]}}
+        # Stored as lists in JSON, converted to sets on load
+        self.floor_states_data = {}
 
         self.save_time         = ""
         self.slot              = 0
@@ -58,6 +61,7 @@ class GameState:
             "armour_data":      self.armour_data,
             "stats_data":       self.stats_data,
             "quest_data":       self.quest_data,
+            "floor_states_data": self.floor_states_data,
             "save_time":        self.save_time,
             "slot":             self.slot,
         }
@@ -78,10 +82,44 @@ class GameState:
         gs.inventory_data   = d.get("inventory_data",   [])
         gs.door_states      = d.get("door_states",      [])
         gs.chest_states     = d.get("chest_states",     [])
+        gs.floor_states_data= d.get("floor_states_data",{})
         gs.save_time        = d.get("save_time",        "")
         gs.slot             = d.get("slot",             0)
         return gs
 
+
+# ---------------------------------------------------------------------------
+# floor_states conversion: game uses {int: {"unlocked_doors": set}}
+#                          JSON uses {"1": {"unlocked_doors": ["key1","key2"]}}
+# ---------------------------------------------------------------------------
+
+def floor_states_to_data(floor_states: dict) -> dict:
+    """Convert runtime floor_states (sets) → JSON-serialisable dict (lists)."""
+    result = {}
+    for floor_int, fstate in floor_states.items():
+        result[str(floor_int)] = {
+            "unlocked_doors": list(fstate.get("unlocked_doors", set()))
+        }
+    return result
+
+
+def floor_states_from_data(data: dict) -> dict:
+    """Convert saved floor_states_data (lists) → runtime floor_states (sets)."""
+    result = {}
+    for floor_str, fstate in data.items():
+        try:
+            floor_int = int(floor_str)
+        except ValueError:
+            continue
+        result[floor_int] = {
+            "unlocked_doors": set(fstate.get("unlocked_doors", []))
+        }
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Item serialisation
+# ---------------------------------------------------------------------------
 
 def _item_to_dict(item, stack_count=1) -> dict:
     from src.scenes.chest_scene import (
@@ -106,18 +144,18 @@ def _dict_to_item(d: dict):
         FloorKeyItem, BossKeyItem, RoomKeyItem, StickItem, DebugSwordItem
     )
     cls_map = {
-        "PotionItem":   PotionItem,
-        "CandleItem":   CandleItem,
-        "SwordItem":    SwordItem,
-        "SunSwordItem": SunSwordItem,
-        "ShieldItem":   ShieldItem,
-        "GoldItem":     GoldItem,
-        "KeyItem":      KeyItem,
-        "ExitKeyItem":  ExitKeyItem,
-        "FloorKeyItem": FloorKeyItem,
-        "BossKeyItem":  BossKeyItem,
-        "RoomKeyItem":  RoomKeyItem,
-        "StickItem":    StickItem,
+        "PotionItem":     PotionItem,
+        "CandleItem":     CandleItem,
+        "SwordItem":      SwordItem,
+        "SunSwordItem":   SunSwordItem,
+        "ShieldItem":     ShieldItem,
+        "GoldItem":       GoldItem,
+        "KeyItem":        KeyItem,
+        "ExitKeyItem":    ExitKeyItem,
+        "FloorKeyItem":   FloorKeyItem,
+        "BossKeyItem":    BossKeyItem,
+        "RoomKeyItem":    RoomKeyItem,
+        "StickItem":      StickItem,
         "DebugSwordItem": DebugSwordItem,
     }
     cls_name = d["type"]
@@ -138,9 +176,14 @@ def _dict_to_item(d: dict):
     return item
 
 
+# ---------------------------------------------------------------------------
+# capture / restore
+# ---------------------------------------------------------------------------
+
 def capture(state: GameState, inventory, game_scene=None,
             dungeon_cleared=False, current_location="dungeon",
-            armour=None, player_stats=None, quest_manager=None):
+            armour=None, player_stats=None, quest_manager=None,
+            floor_states=None):
     state.dungeon_cleared  = dungeon_cleared
     state.current_location = current_location
     state.save_time        = datetime.datetime.now().strftime("%Y-%m-%d  %H:%M")
@@ -160,6 +203,10 @@ def capture(state: GameState, inventory, game_scene=None,
     if quest_manager:
         state.quest_data = quest_manager.to_dict()
 
+    # Save floor_states (door/circle unlock progress across all floors)
+    if floor_states is not None:
+        state.floor_states_data = floor_states_to_data(floor_states)
+
     if game_scene:
         state.door_states  = [d.locked for d in getattr(game_scene, 'locked_doors', [])]
         state.chest_states = [
@@ -169,7 +216,8 @@ def capture(state: GameState, inventory, game_scene=None,
         ]
 
 
-def restore(state: GameState, inventory, armour=None, player_stats=None, quest_manager=None):
+def restore(state: GameState, inventory, armour=None, player_stats=None,
+            quest_manager=None):
     inventory._stacks = {}
     inventory._order  = []
     inventory._uid    = 0
@@ -196,6 +244,10 @@ def restore(state: GameState, inventory, armour=None, player_stats=None, quest_m
         else:
             inventory.add(item)
 
+
+# ---------------------------------------------------------------------------
+# save / load
+# ---------------------------------------------------------------------------
 
 def save_slot(slot: int, state: GameState):
     _ensure_dir()
