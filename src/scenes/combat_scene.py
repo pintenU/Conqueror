@@ -105,116 +105,522 @@ class CombatPlayer:
                          (sw_x1-4,sw_y1-5), (sw_x1+4,sw_y1+3), 3)
 
 
+# ============================================================
+# PATCH: Replace the entire CombatGoblin class in combat_scene.py
+# ============================================================
+
 class CombatGoblin:
+    # Animation phases for the attack sequence
+    PHASE_IDLE      = "idle"
+    PHASE_WALK_IN   = "walk_in"
+    PHASE_WINDUP    = "windup"
+    PHASE_STAB      = "stab"
+    PHASE_HOLD      = "hold"
+    PHASE_SNAPBACK  = "snapback"
+
+    # Durations (seconds) for each phase
+    WALK_DUR    = 0.45
+    WINDUP_DUR  = 0.18
+    STAB_DUR    = 0.12
+    HOLD_DUR    = 0.10
+    SNAP_DUR    = 0.22
+
     def __init__(self, x, y, size):
         self.base_x   = float(x)
         self.base_y   = float(y)
         self.x        = float(x)
         self.y        = float(y)
         self.size     = size
-        self.anim_time = random.uniform(0, math.tau)
-        # Attack lunge (toward player — left)
-        self.lunging       = False
-        self.lunge_timer   = 0.0
-        self.LUNGE_DUR     = 0.35
-        # Damage flash
-        self.flash_timer   = 0.0
-        self.FLASH_DUR     = 0.4
+        self.anim_time    = random.uniform(0, math.tau)
+        self.flash_timer  = 0.0
+        self.FLASH_DUR    = 0.4
+
+        # New multi-phase lunge system
+        self.lunging      = False   # kept for compatibility — True during any attack anim
+        self.lunge_timer  = 0.0
+        self.LUNGE_DUR    = self.WALK_DUR + self.WINDUP_DUR + self.STAB_DUR + self.HOLD_DUR + self.SNAP_DUR
+        self._phase       = self.PHASE_IDLE
+        self._phase_t     = 0.0    # time within current phase
+
+        # Per-phase state
+        self._walk_offset   = 0.0  # how far we've walked left
+        self._arm_windup    = 0.0  # 0=neutral, 1=fully wound back
+        self._arm_stab      = 0.0  # 0=neutral, 1=fully extended
+        self._leg_phase     = 0.0  # drives leg walk cycle
 
     def start_lunge(self):
-        self.lunging     = True
+        self.lunging    = True
         self.lunge_timer = 0.0
+        self._phase     = self.PHASE_WALK_IN
+        self._phase_t   = 0.0
+        self._walk_offset = 0.0
+        self._arm_windup  = 0.0
+        self._arm_stab    = 0.0
 
     def start_flash(self):
         self.flash_timer = self.FLASH_DUR
 
     def update(self, dt):
-        self.anim_time  += dt
-        self.flash_timer = max(0.0, self.flash_timer - dt)
+        self.anim_time   += dt
+        self.flash_timer  = max(0.0, self.flash_timer - dt)
 
-        if self.lunging:
-            self.lunge_timer += dt
-            t = self.lunge_timer / self.LUNGE_DUR
-            if t >= 1.0:
-                self.lunging = False
+        if not self.lunging:
+            self._phase      = self.PHASE_IDLE
+            self._arm_windup = 0.0
+            self._arm_stab   = 0.0
+            return
+
+        self.lunge_timer += dt
+        self._phase_t    += dt
+
+        # ── Phase transitions ──────────────────────────────────────────
+        if self._phase == self.PHASE_WALK_IN:
+            prog = min(1.0, self._phase_t / self.WALK_DUR)
+            # Ease in: slow start, fast finish
+            ease = 1 - (1 - prog) ** 2
+            self._walk_offset = ease * self.size * 0.55
+            self._leg_phase   = self.anim_time   # legs animate from anim_time
+            if self._phase_t >= self.WALK_DUR:
+                self._phase   = self.PHASE_WINDUP
+                self._phase_t = 0.0
+
+        elif self._phase == self.PHASE_WINDUP:
+            prog = min(1.0, self._phase_t / self.WINDUP_DUR)
+            self._arm_windup = prog          # arm pulls back
+            self._arm_stab   = 0.0
+            if self._phase_t >= self.WINDUP_DUR:
+                self._phase   = self.PHASE_STAB
+                self._phase_t = 0.0
+
+        elif self._phase == self.PHASE_STAB:
+            prog = min(1.0, self._phase_t / self.STAB_DUR)
+            # Very fast — ease out so it slams
+            ease = 1 - (1 - prog) ** 3
+            self._arm_windup = 1.0 - ease    # arm snaps forward
+            self._arm_stab   = ease
+            if self._phase_t >= self.STAB_DUR:
+                self._phase   = self.PHASE_HOLD
+                self._phase_t = 0.0
+                self._arm_windup = 0.0
+                self._arm_stab   = 1.0
+
+        elif self._phase == self.PHASE_HOLD:
+            # Fully extended — brief pause
+            self._arm_stab = 1.0
+            if self._phase_t >= self.HOLD_DUR:
+                self._phase   = self.PHASE_SNAPBACK
+                self._phase_t = 0.0
+
+        elif self._phase == self.PHASE_SNAPBACK:
+            prog = min(1.0, self._phase_t / self.SNAP_DUR)
+            ease = 1 - (1 - prog) ** 2
+            self._arm_stab    = 1.0 - ease
+            self._walk_offset = (1.0 - ease) * self.size * 0.55
+            if self._phase_t >= self.SNAP_DUR:
+                self.lunging      = False
+                self._phase       = self.PHASE_IDLE
+                self._phase_t     = 0.0
+                self._arm_stab    = 0.0
+                self._walk_offset = 0.0
                 self.x = self.base_x
                 self.y = self.base_y
-            else:
-                offset = math.sin(t * math.pi) * self.size * 0.9
-                self.x = self.base_x - offset   # lunge LEFT toward player
-                self.y = self.base_y
+                return
+
+        # Apply walk offset to x position
+        self.x = self.base_x - self._walk_offset
 
     def draw(self, surface):
         s   = self.size
         cx  = int(self.x)
         cy  = int(self.y)
-        bob = math.sin(self.anim_time * 2.6) * 3 if not self.lunging else 0
+
+        # Idle bob — stops during attack so it doesn't fight the animation
+        if self._phase == self.PHASE_IDLE:
+            bob = math.sin(self.anim_time * 2.0) * 3
+        else:
+            bob = 0
+
         flash = self.flash_timer / self.FLASH_DUR if self.flash_timer > 0 else 0.0
 
-        skin  = _lerp_col((70,130,55),  (255,255,255), flash*0.7)
-        dark  = _lerp_col((50, 95,40),  (255,255,255), flash*0.5)
-        body  = _lerp_col((55,110,45),  (255,255,255), flash*0.6)
-        lc    = _lerp_col((40, 80,35),  (255,255,255), flash*0.5)
-        ec    = _lerp_col((60,115,48),  (255,255,255), flash*0.4)
+        def fc(col):
+            return tuple(min(255, int(col[i] + (255 - col[i]) * flash * 0.65))
+                         for i in range(3))
 
-        # Shadow
-        sh = pygame.Surface((s, s//4), pygame.SRCALPHA)
-        pygame.draw.ellipse(sh, (0,0,0,50), (0,0,s,s//4))
-        surface.blit(sh, (cx-s//2, cy+s//2-s//8))
+        skin    = fc((74,  154,  74))
+        dark    = fc((45,  122,  45))
+        darker  = fc((29,   90,  29))
+        tunic   = fc((155, 107,  67))
+        tunic_d = fc((107,  66,  37))
+        pants   = fc((139,  94,  60))
+        pants_d = fc((107,  66,  37))
+        bone    = fc((232, 224, 192))
+        tusk    = fc((236, 228, 194))
+        wart    = fc((58,  138,  58))
+        gold    = fc((200, 160,  80))
+        wood    = fc((122,  78,  44))
+        wood_d  = fc((90,   56,  26))
+        tip_col = fc((176, 149, 106))
+        blood   = fc((90,   26,  26))
+        mohawk  = fc((45,  106,  45))
+        scar    = fc((42,   90,  42))
+        bracer  = fc((122,  82,  48))
+        bracer_l= fc((154, 112,  64))
+        tongue  = fc((180,  60,  60))
 
-        # Legs
-        lw, lh = s//5, s//3
-        lby = cy + s//4 + int(bob)
-        pygame.draw.rect(surface, lc, (cx-lw-3, lby, lw, lh))
-        pygame.draw.rect(surface, lc, (cx+3,    lby, lw, lh))
+        u = s / 200   # scale unit
 
-        # Body
-        bw, bh = s//2, s//2
-        bx = cx - bw//2
-        by = cy - bh//4 + int(bob)
-        pygame.draw.rect(surface, body, (bx,by,bw,bh))
-        pygame.draw.rect(surface, dark, (bx,by,bw,bh), 2)
+        # ── Leg walk animation ────────────────────────────────────────────
+        # During walk-in and snapback legs cycle; idle they stand still
+        if self._phase in (self.PHASE_WALK_IN, self.PHASE_SNAPBACK):
+            leg_swing = math.sin(self.anim_time * 12.0)
+        elif self._phase == self.PHASE_IDLE:
+            leg_swing = math.sin(self.anim_time * 2.5) * 0.15  # tiny idle sway
+        else:
+            leg_swing = 0.0   # locked during windup/stab/hold
 
-        # Arms + club toward player (left)
-        arm_y = by + bh//4
-        pygame.draw.line(surface, lc, (cx-bw//2, arm_y),
-                         (cx-bw//2-s//3, arm_y+s//8), 3)
-        club_x = cx - bw//2 - s//3
-        club_y = arm_y + s//8
-        pygame.draw.line(surface, _lerp_col((100,70,40),(255,255,255),flash*0.3),
-                         (club_x,club_y),(club_x-s//4,club_y-s//5), 4)
-        pygame.draw.circle(surface, _lerp_col((80,55,30),(255,255,255),flash*0.3),
-                           (club_x-s//4, club_y-s//5), 5)
-        pygame.draw.line(surface, lc, (cx+bw//2,arm_y),
-                         (cx+bw//2+s//6,arm_y+s//8), 3)
+        stride = int(20 * u)
+        l_foot_off = int(leg_swing * stride)
+        r_foot_off = -l_foot_off
 
-        # Head
-        hr = s // 4
-        hx, hy = cx, by - hr + int(bob)
-        pygame.draw.circle(surface, skin, (hx,hy), hr)
-        pygame.draw.circle(surface, dark, (hx,hy), hr, 2)
+        # ── Shadow ────────────────────────────────────────────────────────
+        sh = pygame.Surface((int(s * 1.2), int(s * 0.14)), pygame.SRCALPHA)
+        pygame.draw.ellipse(sh, (0, 0, 0, 45),
+                            (0, 0, int(s * 1.2), int(s * 0.14)))
+        surface.blit(sh, (cx - int(s * 0.6), cy + int(s * 0.42) + int(bob)))
 
-        # Ears
-        pygame.draw.polygon(surface, ec, [
-            (hx-hr,hy-2),(hx-hr-8,hy-10),(hx-hr+2,hy+3)])
-        pygame.draw.polygon(surface, ec, [
-            (hx+hr,hy-2),(hx+hr+6,hy-8),(hx+hr-2,hy+3)])
+        # ── Clawed feet ───────────────────────────────────────────────────
+        fw = max(12, int(18 * u)); fh = max(5, int(8 * u))
+        foot_y = cy + int(88 * u) + int(bob)
+        lf_cx  = cx - int(30 * u) + l_foot_off
+        rf_cx  = cx + int(30 * u) + r_foot_off
 
-        # Eyes
-        eox = hr//2
-        pygame.draw.circle(surface, _lerp_col((220,200,40),(255,255,255),flash), (hx-eox,hy), 4)
-        pygame.draw.circle(surface, _lerp_col((220,200,40),(255,255,255),flash), (hx+eox,hy), 4)
-        pygame.draw.circle(surface, (20,12,2), (hx-eox,hy), 2)
-        pygame.draw.circle(surface, (20,12,2), (hx+eox,hy), 2)
+        for (fx, flip) in [(lf_cx, -1), (rf_cx, 1)]:
+            pygame.draw.ellipse(surface, fc((58, 42, 24)),
+                                (fx - fw, foot_y - fh // 2, fw * 2, fh))
+            for fdx, fdy in [(flip * int(14*u), int(12*u)),
+                             (flip * int(10*u), int(14*u)),
+                             (flip * int(5*u),  int(14*u))]:
+                pygame.draw.line(surface, fc((42, 28, 14)),
+                                 (fx, foot_y), (fx + fdx, foot_y + fdy),
+                                 max(2, int(3 * u)))
 
-        # Mouth
-        my = hy + hr//2
-        pygame.draw.line(surface, (20,10,5), (hx-5,my),(hx+5,my), 2)
-        for tx in [hx-3,hx,hx+3]:
-            pygame.draw.line(surface, (220,215,200),(tx,my),(tx,my-3),1)
+        # ── Legs — two-segment with animated knee ─────────────────────────
+        lw = max(8, int(20 * u))
+        leg_top_y = cy + int(38 * u) + int(bob)
+        hip_l = (cx - int(18 * u), leg_top_y)
+        hip_r = (cx + int(18 * u), leg_top_y)
 
+        # Knee positions swing forward/back with feet
+        lknee = (cx - int(26 * u) + l_foot_off // 2,
+                 cy + int(66 * u) + int(bob))
+        rknee = (cx + int(26 * u) + r_foot_off // 2,
+                 cy + int(64 * u) + int(bob))
 
+        # Left leg: hip -> knee -> foot
+        pygame.draw.line(surface, pants, hip_l, lknee, lw)
+        pygame.draw.line(surface, pants, lknee, (lf_cx, foot_y), lw)
+        # Right leg
+        pygame.draw.line(surface, pants_d, hip_r, rknee, lw)
+        pygame.draw.line(surface, pants_d, rknee, (rf_cx, foot_y), lw)
 
+        # Knee pads
+        kp = max(6, int(10 * u))
+        for kneepos, col in [(lknee, pants_d), (rknee, pants_d)]:
+            pygame.draw.circle(surface, col, kneepos, kp)
+            pygame.draw.circle(surface, bracer_l, kneepos, kp,
+                               max(1, int(2 * u)))
+            pygame.draw.circle(surface, gold, kneepos, max(2, int(3 * u)))
+
+        # ── Belt ──────────────────────────────────────────────────────────
+        belt_y = cy + int(36 * u) + int(bob)
+        belt_w = int(76 * u); belt_h = max(5, int(10 * u))
+        pygame.draw.rect(surface, fc((90, 56, 32)),
+                         (cx - belt_w // 2, belt_y, belt_w, belt_h),
+                         border_radius=3)
+        bk_w = max(10, int(18 * u)); bk_h = max(8, int(16 * u))
+        pygame.draw.rect(surface, gold,
+                         (cx - bk_w // 2, belt_y - bk_h // 4, bk_w, bk_h),
+                         border_radius=2)
+        pygame.draw.rect(surface, fc((138, 96, 32)),
+                         (cx - bk_w // 2 + max(2, int(3*u)),
+                          belt_y - bk_h // 4 + max(2, int(3*u)),
+                          bk_w - max(4, int(6*u)),
+                          bk_h - max(4, int(6*u))))
+
+        # ── Body ──────────────────────────────────────────────────────────
+        bw = max(20, int(86 * u)); bh = max(16, int(130 * u))
+        body_top = cy - int(54 * u) + int(bob)
+        pygame.draw.ellipse(surface, tunic,
+                            (cx - bw // 2, body_top, bw, bh))
+        pygame.draw.ellipse(surface, tunic_d,
+                            (cx - bw // 2, body_top, bw, bh),
+                            max(1, int(2 * u)))
+        pw = max(16, int(68 * u)); ph = max(12, int(100 * u))
+        pygame.draw.ellipse(surface, tunic_d,
+                            (cx - pw // 2, body_top + max(2, int(4*u)), pw, ph))
+        pygame.draw.ellipse(surface, fc((90, 56, 26)),
+                            (cx - pw // 2, body_top + max(2, int(4*u)), pw, ph),
+                            max(1, int(2 * u)))
+        rivet_r = max(2, int(4 * u))
+        for rx_off in [-int(22*u), 0, int(22*u)]:
+            pygame.draw.circle(surface, gold,
+                               (cx + int(rx_off), body_top + int(22 * u)),
+                               rivet_r)
+        for rx_off in [-int(18*u), 0, int(18*u)]:
+            pygame.draw.circle(surface, fc((168, 120, 48)),
+                               (cx + int(rx_off), body_top + int(50 * u)),
+                               max(2, int(3 * u)))
+        pygame.draw.line(surface, fc((90, 56, 26)),
+                         (cx, body_top + int(6*u)),
+                         (cx, body_top + ph - int(6*u)),
+                         max(1, int(2 * u)))
+        for band_off in [int(36*u), int(68*u)]:
+            pygame.draw.arc(surface, fc((90, 56, 26)),
+                            (cx - pw // 2 + int(4*u),
+                             body_top + band_off - int(3*u),
+                             pw - int(8*u), int(6*u)),
+                            0, math.pi, max(1, int(2*u)))
+
+        # ── ARM ANIMATION offsets ─────────────────────────────────────────
+        # windup: weapon arm pulls BACK (right, away from player)
+        # stab:   weapon arm thrusts FORWARD (left, toward player)
+        windup_back  = int(self._arm_windup * 38 * u)   # pulls right
+        stab_forward = int(self._arm_stab   * 52 * u)   # thrusts left
+
+        # ── Right arm — trailing, animates counter to weapon arm ──────────
+        arm_w = max(5, int(14 * u))
+        # During stab right arm swings back slightly for counterbalance
+        r_counter = int(self._arm_stab * 14 * u)
+        shoulder_r = (cx + int(40 * u), cy - int(34 * u) + int(bob))
+        elbow_r    = (cx + int(66 * u) + r_counter,
+                      cy + int(6  * u) + int(bob))
+        rhand      = (cx + int(80 * u) + r_counter,
+                      cy + int(34 * u) + int(bob))
+        pygame.draw.line(surface, skin, shoulder_r, elbow_r, arm_w)
+        pygame.draw.line(surface, skin, elbow_r, rhand,
+                         max(4, int(12 * u)))
+        pygame.draw.circle(surface, skin, rhand, max(5, int(9 * u)))
+        for cdx, cdy in [(int(12*u), -int(10*u)), (int(14*u), -int(5*u)),
+                         (int(14*u),  int(2*u)),  (int(10*u),  int(8*u))]:
+            pygame.draw.line(surface, darker, rhand,
+                             (rhand[0] + cdx, rhand[1] + cdy),
+                             max(1, int(2 * u)))
+
+        # ── Left arm — weapon arm, animated ──────────────────────────────
+        shoulder_l = (cx - int(40 * u), cy - int(34 * u) + int(bob))
+        # Windup pulls elbow/hand back (right), stab thrusts left
+        elbow_l = (cx - int(70 * u) + windup_back - stab_forward,
+                   cy - int(18 * u) + int(bob))
+        lhand   = (cx - int(94 * u) + windup_back - stab_forward,
+                   cy - int(40 * u) + int(bob))
+        pygame.draw.line(surface, skin, shoulder_l, elbow_l, arm_w)
+        pygame.draw.line(surface, skin, elbow_l, lhand,
+                         max(4, int(12 * u)))
+        # Bracer
+        mid_arm = ((elbow_l[0] + lhand[0]) // 2,
+                   (elbow_l[1] + lhand[1]) // 2)
+        angle = math.atan2(lhand[1] - elbow_l[1],
+                           lhand[0] - elbow_l[0])
+        cos_a = math.cos(angle); sin_a = math.sin(angle)
+        hw = int(11 * u); hh = int(7 * u)
+        bpts = [
+            (mid_arm[0] + int( cos_a*hw - sin_a*hh),
+             mid_arm[1] + int( sin_a*hw + cos_a*hh)),
+            (mid_arm[0] + int( cos_a*hw + sin_a*hh),
+             mid_arm[1] + int( sin_a*hw - cos_a*hh)),
+            (mid_arm[0] + int(-cos_a*hw + sin_a*hh),
+             mid_arm[1] + int(-sin_a*hw - cos_a*hh)),
+            (mid_arm[0] + int(-cos_a*hw - sin_a*hh),
+             mid_arm[1] + int(-sin_a*hw + cos_a*hh)),
+        ]
+        pygame.draw.polygon(surface, bracer, bpts)
+        pygame.draw.polygon(surface, bracer_l, bpts, max(1, int(2*u)))
+        pygame.draw.circle(surface, skin, lhand, max(5, int(9 * u)))
+        for cdx, cdy in [(-int(10*u), -int(10*u)), (-int(6*u), -int(12*u)),
+                         ( int(2*u),  -int(12*u))]:
+            pygame.draw.line(surface, darker, lhand,
+                             (lhand[0] + cdx, lhand[1] + cdy),
+                             max(1, int(2 * u)))
+
+        # ── WEAPON — follows the hand ─────────────────────────────────────
+        stick_end = (lhand[0] - int(80 * u), lhand[1] - int(90 * u))
+        pygame.draw.line(surface, wood, lhand, stick_end, max(5, int(8 * u)))
+        # Wood grain
+        for t_frac in [0.3, 0.55, 0.78]:
+            kx = int(lhand[0] + (stick_end[0] - lhand[0]) * t_frac)
+            ky = int(lhand[1] + (stick_end[1] - lhand[1]) * t_frac)
+            pygame.draw.line(surface, wood_d,
+                             (kx, ky),
+                             (kx - int(8*u), ky + int(4*u)),
+                             max(1, int(2 * u)))
+        # Grip wrap
+        for i in range(3):
+            t_frac = 0.08 + i * 0.06
+            gx = int(lhand[0] + (stick_end[0] - lhand[0]) * t_frac)
+            gy = int(lhand[1] + (stick_end[1] - lhand[1]) * t_frac)
+            pygame.draw.line(surface, fc((58, 34, 16)),
+                             (gx - int(6*u), gy - int(3*u)),
+                             (gx + int(6*u), gy + int(3*u)),
+                             max(2, int(4 * u)))
+        # Bone weight lashed on
+        bp = 0.55
+        bx = int(lhand[0] + (stick_end[0] - lhand[0]) * bp)
+        by = int(lhand[1] + (stick_end[1] - lhand[1]) * bp)
+        pygame.draw.line(surface, fc((208, 192, 144)),
+                         (bx - int(10*u), by - int(5*u)),
+                         (bx + int(6*u),  by + int(3*u)),
+                         max(3, int(5 * u)))
+        for i in range(2):
+            lx = bx - int((4-i*4)*u); ly = by - int((2-i*2)*u)
+            pygame.draw.line(surface, wood_d,
+                             (lx - int(4*u), ly + int(8*u)),
+                             (lx + int(8*u), ly - int(4*u)),
+                             max(1, int(2 * u)))
+        # Tip
+        tip_dx = stick_end[0] - lhand[0]
+        tip_dy = stick_end[1] - lhand[1]
+        tip_len = math.hypot(tip_dx, tip_dy)
+        if tip_len > 0:
+            tnx = tip_dx / tip_len; tny = tip_dy / tip_len
+            px2 = -tny;             py2 = tnx
+            tip_pts = [
+                stick_end,
+                (int(stick_end[0] + tnx*int(18*u) - px2*int(10*u)),
+                 int(stick_end[1] + tny*int(18*u) - py2*int(10*u))),
+                (int(stick_end[0] - tnx*int(6*u)  + px2*int(12*u)),
+                 int(stick_end[1] - tny*int(6*u)  + py2*int(12*u))),
+            ]
+            pygame.draw.polygon(surface, tip_col, tip_pts)
+            pygame.draw.polygon(surface, wood_d, tip_pts, max(1, int(2*u)))
+            pygame.draw.line(surface, fc((212, 180, 128)),
+                             stick_end,
+                             (int(stick_end[0] + tnx*int(14*u)),
+                              int(stick_end[1] + tny*int(14*u))),
+                             max(1, int(2*u)))
+        bx2 = int(stick_end[0] - tnx*int(8*u))
+        by2 = int(stick_end[1] - tny*int(8*u))
+        pygame.draw.ellipse(surface, blood,
+                            (bx2 - int(6*u), by2 - int(3*u),
+                             int(10*u), int(5*u)))
+
+        # ── Neck ──────────────────────────────────────────────────────────
+        neck_w = max(6, int(18 * u))
+        pygame.draw.line(surface, skin,
+                         (cx, body_top + int(bob)),
+                         (cx, body_top - int(14*u) + int(bob)),
+                         neck_w)
+
+        # ── Head — ears before fill ───────────────────────────────────────
+        hr = max(12, int(52 * u))
+        head_cy = cy - int(92 * u) + int(bob)
+        ep = max(6, int(20 * u))
+        for sign, flip in [(-1, -1), (1, 1)]:
+            ear = [
+                (cx + sign*(hr - max(1, int(4*u))),  head_cy - hr // 3),
+                (cx + sign*(hr + ep),                 head_cy - hr - ep),
+                (cx + sign*(hr // 2),                 head_cy - hr // 2),
+            ]
+            pygame.draw.polygon(surface, skin, ear)
+            pygame.draw.polygon(surface, dark, ear, max(1, int(2*u)))
+            inner = [
+                (cx + sign*(hr - max(2, int(6*u))),        head_cy - hr//3  + max(1,int(2*u))),
+                (cx + sign*(hr + ep - max(4,int(8*u))),    head_cy - hr - ep + max(4,int(8*u))),
+                (cx + sign*(hr//2 - sign*max(2,int(4*u))), head_cy - hr//2  + max(1,int(2*u))),
+            ]
+            pygame.draw.polygon(surface, darker, inner)
+        # Earring on right ear
+        pygame.draw.circle(surface, gold,
+                           (cx + hr + int(ep * 0.5), head_cy - int(ep * 0.6)),
+                           max(3, int(5 * u)), max(1, int(2*u)))
+        # Head fill
+        pygame.draw.circle(surface, skin, (cx, head_cy), hr)
+        pygame.draw.circle(surface, dark, (cx, head_cy), hr, max(1, int(2*u)))
+
+        # ── Mohawk ────────────────────────────────────────────────────────
+        for mx_off, spike_h in [(-int(20*u), int(24*u)), (-int(8*u), int(30*u)),
+                                 ( int(4*u),  int(28*u)), (int(16*u), int(22*u))]:
+            pygame.draw.polygon(surface, mohawk, [
+                (cx + mx_off - max(3,int(6*u)), head_cy - hr + max(2,int(4*u))),
+                (cx + mx_off + max(1,int(2*u)), head_cy - hr - spike_h),
+                (cx + mx_off + max(3,int(6*u)), head_cy - hr + max(2,int(4*u))),
+            ])
+
+        # ── Battle scar ───────────────────────────────────────────────────
+        pygame.draw.line(surface, scar,
+                         (cx - int(30*u), head_cy - int(24*u)),
+                         (cx - int(18*u), head_cy + int(10*u)),
+                         max(2, int(3*u)))
+
+        # ── Warts ─────────────────────────────────────────────────────────
+        for wx, wy, wr in [
+            (cx - int(24*u), head_cy - int(12*u), max(3, int(4*u))),
+            (cx + int(18*u), head_cy + int(8*u),  max(2, int(3*u))),
+            (cx - int(10*u), head_cy + int(14*u), max(2, int(3*u))),
+            (cx + int(8*u),  head_cy - int(18*u), max(2, int(3*u))),
+        ]:
+            pygame.draw.circle(surface, wart, (wx, wy), wr)
+
+        # ── Eyes ──────────────────────────────────────────────────────────
+        eox = max(5, int(18 * u))
+        er  = max(4, int(9 * u))
+        for ex in [cx - eox, cx + eox]:
+            ey = head_cy - max(3, int(6*u))
+            pygame.draw.circle(surface, (26, 26, 10), (ex, ey), er + 1)
+            pygame.draw.circle(surface, (26, 26, 10), (ex, ey), er)
+            pygame.draw.circle(surface, (255, 255, 255),
+                               (ex + max(1,int(3*u)), ey - max(1,int(2*u))),
+                               max(2, int(3*u)))
+
+        # ── Brow ──────────────────────────────────────────────────────────
+        brow_y = head_cy - max(4, int(16*u))
+        for ex in [cx - eox, cx + eox]:
+            pygame.draw.ellipse(surface, dark,
+                                (ex - max(4,int(7*u)), brow_y - max(2,int(3*u)),
+                                 max(8,int(14*u)), max(4,int(6*u))))
+        pygame.draw.line(surface, darker,
+                         (cx - eox - max(3,int(6*u)), brow_y - max(1,int(3*u))),
+                         (cx - eox + max(3,int(6*u)), brow_y + max(2,int(5*u))),
+                         max(2, int(4*u)))
+        pygame.draw.line(surface, darker,
+                         (cx + eox + max(3,int(6*u)), brow_y - max(1,int(3*u))),
+                         (cx + eox - max(3,int(6*u)), brow_y + max(2,int(5*u))),
+                         max(2, int(4*u)))
+
+        # ── Nose ──────────────────────────────────────────────────────────
+        nw = max(8, int(14*u)); nh = max(6, int(11*u))
+        pygame.draw.ellipse(surface, dark,
+                            (cx - nw//2, head_cy + max(2,int(8*u)), nw, nh))
+        for nox in [-max(3,int(5*u)), max(3,int(5*u))]:
+            pygame.draw.circle(surface, darker,
+                               (cx + nox, head_cy + max(4,int(13*u))),
+                               max(2, int(4*u)))
+
+        # ── Mouth ─────────────────────────────────────────────────────────
+        mouth_y = head_cy + max(8, int(26*u))
+        mouth_w = max(12, int(46*u))
+        pygame.draw.arc(surface, (26, 10, 10),
+                        (cx - mouth_w//2, mouth_y - max(3,int(4*u)),
+                         mouth_w, max(6,int(14*u))),
+                        0, math.pi, max(2, int(3*u)))
+        pygame.draw.ellipse(surface, tongue,
+                            (cx - max(6,int(10*u)), mouth_y,
+                             max(12,int(20*u)), max(4,int(8*u))))
+        tooth_w = max(3, int(6*u))
+        for tx in range(cx - mouth_w//2 + max(2,int(4*u)),
+                        cx + mouth_w//2 - max(2,int(4*u)),
+                        max(5, int(8*u))):
+            pygame.draw.rect(surface, bone,
+                             (tx, mouth_y, tooth_w, max(5,int(8*u))),
+                             border_radius=1)
+        tusk_w = max(3, int(4*u))
+        pygame.draw.line(surface, tusk,
+                         (cx - mouth_w//2 + max(1,int(2*u)), mouth_y),
+                         (cx - mouth_w//2 - max(1,int(2*u)),
+                          mouth_y + max(6,int(16*u))), tusk_w)
+        pygame.draw.line(surface, tusk,
+                         (cx + mouth_w//2 - max(1,int(2*u)), mouth_y),
+                         (cx + mouth_w//2 + max(1,int(2*u)),
+                          mouth_y + max(6,int(16*u))), tusk_w)
 
 
 # ---------------------------------------------------------------------------

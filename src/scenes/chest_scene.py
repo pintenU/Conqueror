@@ -323,6 +323,7 @@ class ExitKeyItem(Item):
                          (cx+s//3,  cy-s//5),
                          (cx+s//3,  cy-s//5+s//7), 3)
 
+
 class FloorKeyItem(Item):
     """Dropped by Goblin Chieftain — used at floor transition circles."""
     def __init__(self):
@@ -349,14 +350,14 @@ class FloorKeyItem(Item):
         pygame.draw.line(surface,(190,150,55),
                          (cx+s//3,cy-s//5),(cx+s//3,cy-s//5+s//7),3)
 
-
 class BossKeyItem(Item):
-    """Dropped by the Goblin King — unlocks all special rooms and the exit."""
+    """Dropped by the Goblin King — permanent key for all special rooms in this dungeon."""
     def __init__(self):
-        super().__init__("Boss Key",
-                         "A crown key. Unlocks special rooms and the dungeon exit.",
+        super().__init__("Boss Key (Ashenvale Dungeon)",
+                         "A crown key. Permanently unlocks all special rooms. Exclusive to this dungeon.",
                          (220, 50, 50))
-        self.stackable = False
+        self.stackable  = False
+        self.permanent  = True   # never consumed when used
 
     def draw_icon(self, surface, cx, cy, size):
         s = size
@@ -378,6 +379,28 @@ class BossKeyItem(Item):
         glow=pygame.Surface((s,s),pygame.SRCALPHA)
         pygame.draw.ellipse(glow,(220,50,50,25),(0,0,s,s))
         surface.blit(glow,(cx-s//2,cy-s//2))
+
+
+class RoomKeyItem(Item):
+    """Dropped by a random goblin — opens a specific locked door."""
+    def __init__(self, key_id: str = "room_key"):
+        self.key_id = key_id
+        super().__init__("Room Key",
+                         "An iron key. Opens a locked door nearby.",
+                         (150, 130, 70))
+        self.stackable = False
+
+    def draw_icon(self, surface, cx, cy, size):
+        s = size
+        pygame.draw.circle(surface,(130,110,45),(cx-s//4,cy-s//5),s//5+1)
+        pygame.draw.circle(surface,(160,138,58),(cx-s//4,cy-s//5),s//5)
+        pygame.draw.circle(surface,(55, 44,16), (cx-s//4,cy-s//5),s//9)
+        pygame.draw.line(surface,(150,128,52),
+                         (cx-s//4+s//5,cy-s//5),(cx+s//3,cy-s//5),4)
+        pygame.draw.line(surface,(150,128,52),
+                         (cx+s//5,cy-s//5),(cx+s//5,cy-s//5+s//6),3)
+        pygame.draw.line(surface,(150,128,52),
+                         (cx+s//3,cy-s//5),(cx+s//3,cy-s//5+s//8),3)
 
 
 class StickItem(Item):
@@ -418,30 +441,8 @@ class StickItem(Item):
                                (cx+s//2-6,cy-s//2+6),4)
 
 
-class RoomKeyItem(Item):
-    """Dropped by a random goblin — opens a specific locked door."""
-    def __init__(self, key_id: str = "room_key"):
-        self.key_id = key_id
-        super().__init__("Room Key",
-                         "An iron key. Opens a locked door nearby.",
-                         (150, 130, 70))
-        self.stackable = False
-
-    def draw_icon(self, surface, cx, cy, size):
-        s = size
-        pygame.draw.circle(surface,(130,110,45),(cx-s//4,cy-s//5),s//5+1)
-        pygame.draw.circle(surface,(160,138,58),(cx-s//4,cy-s//5),s//5)
-        pygame.draw.circle(surface,(55, 44,16), (cx-s//4,cy-s//5),s//9)
-        pygame.draw.line(surface,(150,128,52),
-                         (cx-s//4+s//5,cy-s//5),(cx+s//3,cy-s//5),4)
-        pygame.draw.line(surface,(150,128,52),
-                         (cx+s//5,cy-s//5),(cx+s//5,cy-s//5+s//6),3)
-        pygame.draw.line(surface,(150,128,52),
-                         (cx+s//3,cy-s//5),(cx+s//3,cy-s//5+s//8),3)
-
-
 class DebugSwordItem(StickItem):
-    """80-damage debug weapon. Survives save/load. Remove before release."""
+    """80-damage debug weapon. Remove before release."""
     WEAPON_NAMES  = ["DEBUG Sword"] * 6
     DAMAGE_VALUES = [80, 80, 80, 80, 80, 80]
 

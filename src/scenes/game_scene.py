@@ -109,7 +109,7 @@ def build_floor2():
         (18,27),(19,27),(18,30),(19,30),   # A→B
         (17,40),(18,40),(17,43),(18,43),   # B→C
         (17,53),(18,53),(17,56),(18,56),   # C→big
-        (14,35),(14,36),(11,35),(11,36),   # B↑special
+        (14,35),(14,36),(11,35),(11,36),(10,35),(10,36),   # B↑special + special bottom wall
         (22,35),(22,36),(26,35),(26,36),   # B↓D
         (34,35),(34,36),                   # D bottom
         (35,25),(36,25),(37,25),(38,25),(39,25),(38,26),(39,26),   # D→E connector
@@ -150,6 +150,7 @@ def build_floor3():
         (19,26),(20,26),(19,30),(20,30),   # hub→big
         (19,51),(20,51),(19,55),(20,55),   # big→small
         (24,19),(24,20),                   # hub bottom wall → floor circle corridor
+        (11,19),(11,20),                   # special N bottom wall
         (33,19),(34,19),(33,20),(34,20)])  # hub↓floor circle
 
     return g
@@ -179,6 +180,7 @@ def build_floor4():
     # Open walls (row, col)
     op([(14,9),(15,9),(14,14),(15,14),     # spawn→room1 (room1 left wall col 14)
         (14,26),(15,26),(14,30),(15,30),   # room1→room2
+        (11,41),(12,41),                   # room2 right wall → special corridor
         (11,44),(12,44),(11,45),(12,45),   # room2→special
         (19,35),(19,36),                   # room2 bottom wall → arena corridor
         (20,35),(21,35),(27,35),(28,35),(28,36)])  # room2↓arena (arena top wall)
@@ -262,7 +264,7 @@ FLOOR_DATA = {
 
         # Boss key locked doors (col, row, orientation)
         "boss_key_doors": [
-            (19, 14, 'v'),  # special N room door (top wall of central room)
+            (19, 14, 'h'),  # blocks cols 19-20 at row 14 (full corridor width)
         ],
     },
 
@@ -352,7 +354,7 @@ FLOOR_DATA = {
         ],
 
         "ground_items": [],
-        "boss_key_doors": [(35,11,'h')],   # B↑special top corridor
+        "boss_key_doors": [(35,11,'h'),(35,12,'h')],   # two doors, one per row — blocks full 2×2 corridor
     },
 
     # ------- FLOOR 3 -------
@@ -1133,7 +1135,7 @@ class GameScene:
         for item in list(self.inventory.items):
             if door.is_boss_key and isinstance(item, BossKeyItem):
                 door.locked=False
-                self.inventory.remove(item)
+                # BossKeyItem is permanent — never consumed
                 self._persist_door(door)
                 return True
             if isinstance(item, FloorKeyItem) and door.key_id=="floor_key":
