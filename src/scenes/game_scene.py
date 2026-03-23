@@ -5,6 +5,7 @@ import random
 from src.entities.player import Player
 from src.entities.enemy import Enemy
 from src.entities.entity_factory import spawn_patrol, roll_loot as factory_roll_loot
+from src.entities.enemy import (_draw_goblin, _draw_chieftain, _draw_generic)
 
 TILE_SIZE = 48
 FLOOR = 0
@@ -771,8 +772,7 @@ class RoamingEnemy:
         self.moving=True
 
     def draw(self,surface,ox,oy):
-        from src.entities.enemy import (
-            _draw_goblin,_draw_generic)
+        from src.entities.enemy import (_draw_goblin, _draw_chieftain, _draw_generic)
         draw_x=int(self.px)+ox; draw_y=int(self.py)+oy
         t=self._anim_time; ts=self.tile_size
         etype=self.enemy_type
@@ -782,76 +782,6 @@ class RoamingEnemy:
             _draw_chieftain(surface,draw_x,draw_y,t,ts)
         else:
             _draw_generic(surface,draw_x,draw_y,t,ts,self.color)
-
-
-def _draw_chieftain(surf,x,y,t,ts):
-    """Goblin Chieftain — bigger, armoured, with a crown."""
-    from src.entities.enemy import _draw_goblin,_lerp_col
-    s=ts; cx=x+s//2; cy=y+s//2
-    bob=int(math.sin(t*2.0)*max(3,s//16))
-    col=(60,120,40); dark=(35,80,22); armour=(80,65,40); gold=(190,155,40)
-
-    # Shadow
-    sh=pygame.Surface((s,s//4),pygame.SRCALPHA)
-    pygame.draw.ellipse(sh,(0,0,0,60),(0,0,s,s//4))
-    surf.blit(sh,(cx-s//2,cy+s//3))
-
-    # Boots
-    bfw=max(7,s//8)
-    for bx2 in [cx-s//6-bfw//2,cx+s//6-bfw//2]:
-        pygame.draw.rect(surf,(45,35,20),(bx2,cy+s//3+bob,bfw,max(5,s//10)))
-
-    # Legs
-    lw=max(6,s//8); lh=max(10,s//3)
-    for lx2 in [cx-s//6-lw//2,cx+s//6-lw//2]:
-        pygame.draw.rect(surf,col,(lx2,cy+bob,lw,lh))
-
-    # Body — wider than normal goblin
-    bw=max(16,s*3//4); bh=max(12,s//2)
-    pygame.draw.ellipse(surf,col,(cx-bw//2,cy-bh//3+bob,bw,bh))
-    pygame.draw.ellipse(surf,dark,(cx-bw//2,cy-bh//3+bob,bw,bh),max(1,s//40))
-    # Armour chest plate
-    pygame.draw.rect(surf,armour,(cx-bw//3,cy-bh//4+bob,bw*2//3,bh//2))
-    pygame.draw.rect(surf,dark,(cx-bw//3,cy-bh//4+bob,bw*2//3,bh//2),max(1,s//48))
-
-    # Arms
-    aw=max(4,s//10)
-    pygame.draw.line(surf,col,(cx-bw//2,cy-bh//5+bob),(cx-bw//2-s//4,cy+bob),aw)
-    pygame.draw.line(surf,col,(cx+bw//2,cy-bh//5+bob),(cx+bw//2+s//5,cy+bob),aw)
-    # Club in left hand
-    pygame.draw.line(surf,armour,(cx-bw//2-s//4,cy+bob),(cx-bw//2-s//3,cy-s//4+bob),max(3,s//14))
-    pygame.draw.circle(surf,(70,55,30),(cx-bw//2-s//3,cy-s//4+bob),max(5,s//10))
-
-    # Head — bigger
-    hr=max(8,s//4)
-    pygame.draw.circle(surf,col,(cx,cy-bh//3-hr+bob),hr)
-    pygame.draw.circle(surf,dark,(cx,cy-bh//3-hr+bob),hr,max(1,s//40))
-
-    # Crown
-    crown_pts=[
-        (cx-hr,   cy-bh//3-hr*2+bob+4),
-        (cx-hr+4, cy-bh//3-hr*2-8+bob),
-        (cx-hr//2,cy-bh//3-hr*2+bob+2),
-        (cx,      cy-bh//3-hr*2-10+bob),
-        (cx+hr//2,cy-bh//3-hr*2+bob+2),
-        (cx+hr-4, cy-bh//3-hr*2-8+bob),
-        (cx+hr,   cy-bh//3-hr*2+bob+4),
-    ]
-    pygame.draw.polygon(surf,gold,crown_pts)
-    pygame.draw.polygon(surf,dark,crown_pts,max(1,s//48))
-
-    # Ears
-    for ex,sign in [(cx-hr,-1),(cx+hr,1)]:
-        pygame.draw.polygon(surf,col,[
-            (ex,cy-bh//3-hr+bob),
-            (ex+sign*max(5,s//10),cy-bh//3-hr-max(6,s//8)+bob),
-            (ex+sign*max(3,s//14),cy-bh//3-hr+max(3,s//16)+bob)])
-
-    # Eyes — red
-    er=max(2,s//20); eox=max(3,hr//2)
-    for ex in [cx-eox,cx+eox]:
-        pygame.draw.circle(surf,(220,50,30),(ex,cy-bh//3-hr+bob),er)
-        pygame.draw.circle(surf,(255,150,100),(ex,cy-bh//3-hr+bob),max(1,er-1))
 
 # ---------------------------------------------------------------------------
 # Camera

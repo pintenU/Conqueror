@@ -732,6 +732,643 @@ class CombatEnemyProxy:
             surface.blit(flash_surf,(draw_x-s//2, draw_y-s//2))
 
 # ---------------------------------------------------------------------------
+# Goblin Chieftain combat sprite
+# ---------------------------------------------------------------------------
+
+class CombatGoblinChieftain:
+    """
+    Goblin Chieftain combat sprite — faces LEFT toward the player.
+    Larger and more detailed than the wandering version.
+    Battle-scarred, dead eye, axe raised and ready.
+    """
+
+    PHASE_IDLE     = "idle"
+    PHASE_WALK_IN  = "walk_in"
+    PHASE_WINDUP   = "windup"
+    PHASE_SWING    = "swing"
+    PHASE_HOLD     = "hold"
+    PHASE_SNAPBACK = "snapback"
+
+    WALK_DUR   = 0.40
+    WINDUP_DUR = 0.22
+    SWING_DUR  = 0.14
+    HOLD_DUR   = 0.12
+    SNAP_DUR   = 0.24
+
+    def __init__(self, x, y, size):
+        self.base_x  = float(x)
+        self.base_y  = float(y)
+        self.x       = float(x)
+        self.y       = float(y)
+        self.size    = size
+        self.anim_time   = 0.0
+        self.flash_timer = 0.0
+        self.FLASH_DUR   = 0.45
+        self.lunging     = False
+        self.lunge_timer = 0.0
+        self.LUNGE_DUR   = (self.WALK_DUR + self.WINDUP_DUR +
+                            self.SWING_DUR + self.HOLD_DUR + self.SNAP_DUR)
+        self._phase      = self.PHASE_IDLE
+        self._phase_t    = 0.0
+        self._walk_offset  = 0.0
+        self._axe_windup   = 0.0   # 0=ready, 1=fully wound back
+        self._axe_swing    = 0.0   # 0=ready, 1=fully swung forward
+
+    def start_lunge(self):
+        self.lunging     = True
+        self.lunge_timer = 0.0
+        self._phase      = self.PHASE_WALK_IN
+        self._phase_t    = 0.0
+        self._walk_offset  = 0.0
+        self._axe_windup   = 0.0
+        self._axe_swing    = 0.0
+
+    def start_flash(self):
+        self.flash_timer = self.FLASH_DUR
+
+    def update(self, dt):
+        self.anim_time   += dt
+        self.flash_timer  = max(0.0, self.flash_timer - dt)
+
+        if not self.lunging:
+            self._phase     = self.PHASE_IDLE
+            self._axe_windup = 0.0
+            self._axe_swing  = 0.0
+            return
+
+        self.lunge_timer += dt
+        self._phase_t    += dt
+
+        if self._phase == self.PHASE_WALK_IN:
+            prog = min(1.0, self._phase_t / self.WALK_DUR)
+            ease = 1 - (1 - prog) ** 2
+            self._walk_offset = ease * self.size * 0.45
+            if self._phase_t >= self.WALK_DUR:
+                self._phase   = self.PHASE_WINDUP
+                self._phase_t = 0.0
+
+        elif self._phase == self.PHASE_WINDUP:
+            prog = min(1.0, self._phase_t / self.WINDUP_DUR)
+            self._axe_windup = prog
+            self._axe_swing  = 0.0
+            if self._phase_t >= self.WINDUP_DUR:
+                self._phase   = self.PHASE_SWING
+                self._phase_t = 0.0
+
+        elif self._phase == self.PHASE_SWING:
+            prog = min(1.0, self._phase_t / self.SWING_DUR)
+            ease = 1 - (1 - prog) ** 3
+            self._axe_windup = 1.0 - ease
+            self._axe_swing  = ease
+            if self._phase_t >= self.SWING_DUR:
+                self._phase      = self.PHASE_HOLD
+                self._phase_t    = 0.0
+                self._axe_windup = 0.0
+                self._axe_swing  = 1.0
+
+        elif self._phase == self.PHASE_HOLD:
+            self._axe_swing = 1.0
+            if self._phase_t >= self.HOLD_DUR:
+                self._phase   = self.PHASE_SNAPBACK
+                self._phase_t = 0.0
+
+        elif self._phase == self.PHASE_SNAPBACK:
+            prog = min(1.0, self._phase_t / self.SNAP_DUR)
+            ease = 1 - (1 - prog) ** 2
+            self._axe_swing   = 1.0 - ease
+            self._walk_offset = (1.0 - ease) * self.size * 0.45
+            if self._phase_t >= self.SNAP_DUR:
+                self.lunging     = False
+                self._phase      = self.PHASE_IDLE
+                self._phase_t    = 0.0
+                self._axe_swing  = 0.0
+                self._walk_offset = 0.0
+                self.x = self.base_x
+                self.y = self.base_y
+                return
+
+        self.x = self.base_x - self._walk_offset
+
+    def draw(self, surface):
+        s   = self.size
+        cx  = int(self.x)
+        cy  = int(self.y)
+
+        # Idle: slow heavy bob. During attack: locked
+        if self._phase == self.PHASE_IDLE:
+            bob = math.sin(self.anim_time * 1.8) * 4
+        else:
+            bob = 0
+
+        flash = self.flash_timer / self.FLASH_DUR if self.flash_timer > 0 else 0.0
+
+        def fc(col):
+            return tuple(min(255, int(col[i] + (255 - col[i]) * flash * 0.65))
+                         for i in range(3))
+
+        u = s / 220   # scale unit — slightly different base than goblin
+
+        skin    = fc((60,  120,  40))
+        dark    = fc((35,   85,  22))
+        darker  = fc((22,   60,  14))
+        hide    = fc((139,  88,  52))
+        hide_d  = fc((105,  62,  30))
+        hide_l  = fc((165, 112,  68))
+        blood   = fc((160,  18,  18))
+        bone    = fc((220, 210, 180))
+        bone_d  = fc((170, 158, 130))
+        claw_c  = fc(( 38,  26,  12))
+        wood    = fc((118,  76,  40))
+        wood_d  = fc(( 88,  54,  24))
+        iron    = fc((148, 142, 134))
+        iron_d  = fc(( 90,  86,  80))
+        iron_l  = fc((198, 194, 188))
+        belt_c  = fc(( 80,  48,  20))
+        gold    = fc((185, 148,  45))
+
+        # ── Shadow ───────────────────────────────────────────────────────
+        sh = pygame.Surface((int(s * 1.3), int(s * 0.15)), pygame.SRCALPHA)
+        pygame.draw.ellipse(sh, (0, 0, 0, 50),
+                            (0, 0, int(s * 1.3), int(s * 0.15)))
+        surface.blit(sh, (cx - int(s * 0.65), cy + int(s * 0.44) + int(bob)))
+
+        # ── Clawed feet ──────────────────────────────────────────────────
+        fw = max(14, int(22 * u)); fh = max(6, int(10 * u))
+        foot_y = cy + int(96 * u) + int(bob)
+        # Slight forward lean — weight on left foot (toward player)
+        lf_cx = cx - int(28 * u)
+        rf_cx = cx + int(32 * u)
+
+        for (fx, flip) in [(lf_cx, -1), (rf_cx, 1)]:
+            pygame.draw.ellipse(surface, fc((55, 40, 20)),
+                                (fx - fw, foot_y - fh // 2, fw * 2, fh))
+            for fdx, fdy in [
+                (flip * int(16*u), int(14*u)),
+                (flip * int(12*u), int(16*u)),
+                (flip * int(5*u),  int(16*u)),
+            ]:
+                pygame.draw.line(surface, claw_c,
+                                 (fx, foot_y),
+                                 (fx + fdx, foot_y + fdy),
+                                 max(2, int(3 * u)))
+
+        # ── Legs — thick hide-covered ─────────────────────────────────────
+        lw = max(10, int(24 * u))
+        leg_top_y = cy + int(42 * u) + int(bob)
+        hip_l = (cx - int(20 * u), leg_top_y)
+        hip_r = (cx + int(20 * u), leg_top_y)
+        lknee = (cx - int(28 * u), cy + int(72 * u) + int(bob))
+        rknee = (cx + int(28 * u), cy + int(70 * u) + int(bob))
+
+        pygame.draw.line(surface, hide,   hip_l, lknee, lw)
+        pygame.draw.line(surface, hide,   lknee, (lf_cx, foot_y), lw)
+        pygame.draw.line(surface, hide_d, hip_r, rknee, lw)
+        pygame.draw.line(surface, hide_d, rknee, (rf_cx, foot_y), lw)
+
+        # Knee pads — crude bone discs
+        kp = max(8, int(13 * u))
+        for kneepos in [lknee, rknee]:
+            pygame.draw.circle(surface, bone_d, kneepos, kp)
+            pygame.draw.circle(surface, bone,   kneepos, kp, max(1, int(2*u)))
+            pygame.draw.circle(surface, hide_d, kneepos, max(3, int(5*u)))
+
+        # ── Belt ─────────────────────────────────────────────────────────
+        belt_y = cy + int(38 * u) + int(bob)
+        belt_w = int(88 * u); belt_h = max(6, int(12 * u))
+        pygame.draw.rect(surface, belt_c,
+                         (cx - belt_w // 2, belt_y, belt_w, belt_h),
+                         border_radius=3)
+        # Belt buckle
+        bk_w = max(12, int(20 * u)); bk_h = max(10, int(18 * u))
+        pygame.draw.rect(surface, gold,
+                         (cx - bk_w // 2, belt_y - bk_h // 4, bk_w, bk_h),
+                         border_radius=2)
+        pygame.draw.rect(surface, fc((110, 82, 24)),
+                         (cx - bk_w // 2 + max(2, int(3*u)),
+                          belt_y - bk_h // 4 + max(2, int(3*u)),
+                          bk_w - max(4, int(6*u)),
+                          bk_h - max(4, int(6*u))))
+        # Trophy skull hanging from belt — left side
+        sk_x = cx - belt_w // 2 + int(18 * u)
+        sk_y = belt_y + belt_h + max(3, int(5*u))
+        pygame.draw.line(surface, belt_c,
+                         (sk_x, belt_y + belt_h), (sk_x, sk_y),
+                         max(1, int(2*u)))
+        sk_r = max(5, int(8*u))
+        pygame.draw.circle(surface, bone_d, (sk_x, sk_y + sk_r), sk_r)
+        pygame.draw.circle(surface, bone,   (sk_x, sk_y + sk_r), sk_r,
+                           max(1, int(2*u)))
+        for ex_off in [-max(2, int(3*u)), max(2, int(3*u))]:
+            pygame.draw.circle(surface, darker,
+                               (sk_x + ex_off, sk_y + sk_r - max(1, int(2*u))),
+                               max(1, int(2*u)))
+
+        # ── Body — wide barrel chest, detailed hide tunic ─────────────────
+        bw = max(24, int(100 * u)); bh = max(20, int(148 * u))
+        body_top = cy - int(60 * u) + int(bob)
+
+        pygame.draw.ellipse(surface, hide,
+                            (cx - bw // 2, body_top, bw, bh))
+        pygame.draw.ellipse(surface, hide_d,
+                            (cx - bw // 2, body_top, bw, bh),
+                            max(1, int(2*u)))
+        # Inner panel — worn lighter patch in centre
+        pw = max(16, int(72 * u)); ph = max(14, int(110 * u))
+        pygame.draw.ellipse(surface, hide_d,
+                            (cx - pw // 2, body_top + max(2, int(5*u)), pw, ph))
+        # Stitching lines down centre
+        for stitch_y in range(body_top + int(12*u),
+                              body_top + ph, max(5, int(10*u))):
+            pygame.draw.line(surface, hide_l,
+                             (cx - max(1, int(2*u)), int(stitch_y)),
+                             (cx + max(1, int(2*u)), int(stitch_y) + max(3, int(6*u))),
+                             max(1, int(2*u)))
+        # Horizontal wear bands
+        for band_off in [int(38*u), int(78*u)]:
+            pygame.draw.arc(surface, fc((90, 56, 26)),
+                            (cx - pw // 2 + int(4*u),
+                             body_top + band_off - int(3*u),
+                             pw - int(8*u), int(6*u)),
+                            0, math.pi, max(1, int(2*u)))
+        # Crude bone toggle at collar
+        tog_x = cx; tog_y = body_top + max(4, int(8*u))
+        pygame.draw.line(surface, bone,
+                         (tog_x - max(5, int(9*u)), tog_y),
+                         (tog_x + max(5, int(9*u)), tog_y),
+                         max(2, int(4*u)))
+        pygame.draw.circle(surface, hide_d, (tog_x, tog_y), max(2, int(4*u)))
+
+        # ── AXE ANIMATION — windup pulls back (right), swing thrusts left ─
+        # During idle: axe held up and ready at left side
+        # windup: axe lifts further back over shoulder
+        # swing: axe sweeps down and forward toward player (left)
+        axe_windup_lift   = int(self._axe_windup * 45 * u)   # lifts up+right
+        axe_swing_forward = int(self._axe_swing  * 65 * u)   # sweeps left+down
+
+        # ── RIGHT arm — counterbalance, swings back during attack ─────────
+        arm_w = max(6, int(16 * u))
+        r_counter = int(self._axe_swing * 18 * u)
+        shoulder_r = (cx + int(44 * u), cy - int(38 * u) + int(bob))
+        elbow_r    = (cx + int(72 * u) + r_counter,
+                      cy + int(8  * u) + int(bob))
+        rhand      = (cx + int(88 * u) + r_counter,
+                      cy + int(38 * u) + int(bob))
+        pygame.draw.line(surface, skin, shoulder_r, elbow_r, arm_w)
+        pygame.draw.line(surface, skin, elbow_r, rhand, max(5, int(14*u)))
+        pygame.draw.circle(surface, skin, rhand, max(6, int(10*u)))
+        for cdx, cdy in [(int(13*u), -int(10*u)), (int(15*u), -int(4*u)),
+                         (int(15*u),  int(3*u)),  (int(10*u),  int(9*u))]:
+            pygame.draw.line(surface, darker, rhand,
+                             (rhand[0] + cdx, rhand[1] + cdy),
+                             max(1, int(2*u)))
+
+        # ── LEFT arm — axe arm, animated ─────────────────────────────────
+        shoulder_l = (cx - int(44 * u), cy - int(38 * u) + int(bob))
+        # Idle: arm raised, axe ready at upper left
+        # Windup: arm lifts higher + back (right)
+        # Swing: arm sweeps down hard to the left
+        elbow_l = (cx - int(68 * u) + axe_windup_lift - axe_swing_forward,
+                   cy - int(55 * u) + axe_windup_lift // 2 + int(bob))
+        lhand   = (cx - int(88 * u) + axe_windup_lift - axe_swing_forward,
+                   cy - int(80 * u) + axe_windup_lift + int(bob))
+
+        pygame.draw.line(surface, skin, shoulder_l, elbow_l, arm_w)
+        pygame.draw.line(surface, skin, elbow_l, lhand, max(5, int(14*u)))
+
+        # Bracer on left arm — wide leather strap
+        mid_arm = ((elbow_l[0] + lhand[0]) // 2,
+                   (elbow_l[1] + lhand[1]) // 2)
+        angle   = math.atan2(lhand[1] - elbow_l[1], lhand[0] - elbow_l[0])
+        cos_a = math.cos(angle); sin_a = math.sin(angle)
+        hw = int(13 * u); hh = int(8 * u)
+        bpts = [
+            (mid_arm[0] + int( cos_a*hw - sin_a*hh),
+             mid_arm[1] + int( sin_a*hw + cos_a*hh)),
+            (mid_arm[0] + int( cos_a*hw + sin_a*hh),
+             mid_arm[1] + int( sin_a*hw - cos_a*hh)),
+            (mid_arm[0] + int(-cos_a*hw + sin_a*hh),
+             mid_arm[1] + int(-sin_a*hw - cos_a*hh)),
+            (mid_arm[0] + int(-cos_a*hw - sin_a*hh),
+             mid_arm[1] + int(-sin_a*hw + cos_a*hh)),
+        ]
+        pygame.draw.polygon(surface, hide_d, bpts)
+        pygame.draw.polygon(surface, hide_l,  bpts, max(1, int(2*u)))
+        # Bracer rivet
+        pygame.draw.circle(surface, gold, mid_arm, max(2, int(4*u)))
+
+        pygame.draw.circle(surface, skin, lhand, max(6, int(10*u)))
+        for cdx, cdy in [(-int(11*u), -int(11*u)), (-int(7*u), -int(13*u)),
+                         ( int(3*u),  -int(13*u))]:
+            pygame.draw.line(surface, darker, lhand,
+                             (lhand[0] + cdx, lhand[1] + cdy),
+                             max(1, int(2*u)))
+
+        # ── AXE — detailed, battle-worn ───────────────────────────────────
+        # Handle runs from hand upward
+        hx1, hy1 = lhand
+        handle_len = int(100 * u)
+        # Handle angle: idle=up-left, windup=more upright, swing=swept forward-down
+        base_angle = math.radians(145)   # up and slightly left
+        windup_rotate = self._axe_windup * math.radians(30)  # rotate clockwise (back)
+        swing_rotate  = self._axe_swing  * math.radians(90)  # sweep forward hard
+        axe_angle = base_angle + windup_rotate - swing_rotate
+        hx2 = int(hx1 + math.cos(axe_angle) * handle_len)
+        hy2 = int(hy1 + math.sin(axe_angle) * handle_len)
+
+        # Handle — wood with grain
+        pygame.draw.line(surface, wood,   (hx1, hy1), (hx2, hy2),
+                         max(5, int(9 * u)))
+        pygame.draw.line(surface, wood_d, (hx1, hy1), (hx2, hy2),
+                         max(2, int(4 * u)))
+        # Wood grain marks
+        for frac in [0.25, 0.45, 0.65, 0.82]:
+            gx = int(hx1 + (hx2-hx1)*frac)
+            gy = int(hy1 + (hy2-hy1)*frac)
+            perp_x = -math.sin(axe_angle) * int(6*u)
+            perp_y =  math.cos(axe_angle) * int(6*u)
+            pygame.draw.line(surface, wood_d,
+                             (int(gx - perp_x), int(gy - perp_y)),
+                             (int(gx + perp_x), int(gy + perp_y)),
+                             max(1, int(2*u)))
+        # Grip wrapping — leather strips near hand
+        for i in range(3):
+            frac = 0.08 + i * 0.07
+            gx = int(hx1 + (hx2-hx1)*frac)
+            gy = int(hy1 + (hy2-hy1)*frac)
+            pygame.draw.line(surface, fc((60, 36, 16)),
+                             (int(gx - math.sin(axe_angle)*int(7*u)),
+                              int(gy + math.cos(axe_angle)*int(7*u))),
+                             (int(gx + math.sin(axe_angle)*int(7*u)),
+                              int(gy - math.cos(axe_angle)*int(7*u))),
+                             max(2, int(5*u)))
+
+        # Iron socket band at top of handle
+        sx = int(hx1 + (hx2-hx1)*0.88)
+        sy = int(hy1 + (hy2-hy1)*0.88)
+        pygame.draw.line(surface, iron_d,
+                         (int(sx - math.sin(axe_angle)*int(9*u)),
+                          int(sy + math.cos(axe_angle)*int(9*u))),
+                         (int(sx + math.sin(axe_angle)*int(9*u)),
+                          int(sy - math.cos(axe_angle)*int(9*u))),
+                         max(3, int(7*u)))
+        pygame.draw.line(surface, iron,
+                         (int(sx - math.sin(axe_angle)*int(7*u)),
+                          int(sy + math.cos(axe_angle)*int(7*u))),
+                         (int(sx + math.sin(axe_angle)*int(7*u)),
+                          int(sy - math.cos(axe_angle)*int(7*u))),
+                         max(1, int(3*u)))
+
+        # Axe head — broad single-bit stone/iron, faces left toward player
+        ax_cx, ax_cy = hx2, hy2
+        # Head vectors: along handle and perpendicular
+        along_x =  math.cos(axe_angle); along_y =  math.sin(axe_angle)
+        perp_x  = -math.sin(axe_angle); perp_y  =  math.cos(axe_angle)
+        hw_head = int(28 * u)   # half-height of head
+        depth   = int(22 * u)   # how far it sticks out from handle
+
+        axe_pts = [
+            (int(ax_cx - along_x * int(6*u) + perp_x * hw_head),
+             int(ax_cy - along_y * int(6*u) + perp_y * hw_head)),   # top socket
+            (int(ax_cx - along_x * depth + perp_x * (hw_head + int(10*u))),
+             int(ax_cy - along_y * depth + perp_y * (hw_head + int(10*u)))),  # top tip
+            (int(ax_cx - along_x * (depth + int(8*u))),
+             int(ax_cy - along_y * (depth + int(8*u)))),             # belly point
+            (int(ax_cx - along_x * depth - perp_x * (hw_head + int(6*u))),
+             int(ax_cy - along_y * depth - perp_y * (hw_head + int(6*u)))),  # bottom tip
+            (int(ax_cx - along_x * int(6*u) - perp_x * hw_head),
+             int(ax_cy - along_y * int(6*u) - perp_y * hw_head)),   # bottom socket
+        ]
+        pygame.draw.polygon(surface, iron,   axe_pts)
+        pygame.draw.polygon(surface, iron_d, axe_pts, max(2, int(3*u)))
+
+        # Edge highlight — sharpened blade edge (the left/outward face)
+        pygame.draw.line(surface, iron_l,
+                         axe_pts[1], axe_pts[2], max(1, int(2*u)))
+        pygame.draw.line(surface, iron_l,
+                         axe_pts[2], axe_pts[3], max(1, int(2*u)))
+
+        # Battle damage — chip notch in blade
+        chip_x = int((axe_pts[1][0] + axe_pts[2][0]) // 2)
+        chip_y = int((axe_pts[1][1] + axe_pts[2][1]) // 2)
+        pygame.draw.polygon(surface, iron_d, [
+            (chip_x,                         chip_y),
+            (chip_x + int(along_x*int(5*u)), chip_y + int(along_y*int(5*u))),
+            (chip_x + int(perp_x *int(4*u)), chip_y + int(perp_y *int(4*u))),
+        ])
+
+        # Dark stain on blade — old blood
+        stain_surf = pygame.Surface((int(depth*3), int(depth*3)), pygame.SRCALPHA)
+        pygame.draw.ellipse(stain_surf, (60, 12, 12, 60),
+                            (0, 0, int(depth*3), int(depth*2)))
+        surface.blit(stain_surf,
+                     (int(ax_cx - along_x*depth - depth*1.5),
+                      int(ax_cy - along_y*depth - depth)),
+                     special_flags=pygame.BLEND_RGBA_ADD)
+
+        # ── Neck — thick ─────────────────────────────────────────────────
+        neck_w = max(8, int(22 * u))
+        pygame.draw.line(surface, skin,
+                         (cx, body_top + int(bob)),
+                         (cx, body_top - int(16*u) + int(bob)), neck_w)
+
+        # ── Head — ears drawn BEFORE fill ────────────────────────────────
+        hr      = max(14, int(60 * u))
+        head_cx = cx
+        head_cy = cy - int(105 * u) + int(bob)
+
+        # Ear shape: wide, blade-like, horizontal
+        ear_len = int(58 * u)
+        ear_h   = int(14 * u)
+
+        # Left ear
+        left_ear = [
+            (head_cx - hr + max(1, int(4*u)), head_cy - hr // 6),
+            (head_cx - hr - ear_len,          head_cy - ear_h),
+            (head_cx - hr // 2,               head_cy - hr // 2),
+        ]
+        pygame.draw.polygon(surface, skin,  left_ear)
+        pygame.draw.polygon(surface, dark,  left_ear, max(1, int(2*u)))
+        # Inner ear
+        pygame.draw.polygon(surface, darker, [
+            (head_cx - hr + max(3, int(6*u)), head_cy - hr // 6 + max(2, int(3*u))),
+            (head_cx - hr - ear_len + max(8, int(14*u)), head_cy - ear_h + max(4, int(6*u))),
+            (head_cx - hr // 2 + max(3, int(5*u)), head_cy - hr // 2 + max(2, int(3*u))),
+        ])
+        # Nick/notch in left ear from old battle
+        nick_x = head_cx - hr - ear_len // 2
+        nick_y = head_cy - ear_h - max(2, int(3*u))
+        pygame.draw.polygon(surface, dark, [
+            (nick_x - max(2, int(4*u)), nick_y),
+            (nick_x + max(2, int(4*u)), nick_y),
+            (nick_x,                   nick_y + max(3, int(6*u))),
+        ])
+
+        # Right ear
+        right_ear = [
+            (head_cx + hr - max(1, int(4*u)), head_cy - hr // 6),
+            (head_cx + hr + ear_len,          head_cy - ear_h),
+            (head_cx + hr // 2,               head_cy - hr // 2),
+        ]
+        pygame.draw.polygon(surface, skin,  right_ear)
+        pygame.draw.polygon(surface, dark,  right_ear, max(1, int(2*u)))
+        pygame.draw.polygon(surface, darker, [
+            (head_cx + hr - max(3, int(6*u)), head_cy - hr // 6 + max(2, int(3*u))),
+            (head_cx + hr + ear_len - max(8, int(14*u)), head_cy - ear_h + max(4, int(6*u))),
+            (head_cx + hr // 2 - max(3, int(5*u)), head_cy - hr // 2 + max(2, int(3*u))),
+        ])
+
+        # Head fill
+        pygame.draw.circle(surface, skin, (head_cx, head_cy), hr)
+        pygame.draw.circle(surface, dark, (head_cx, head_cy), hr,
+                           max(1, int(2*u)))
+
+        # ── Dead right eye (milky, blood vessels) ─────────────────────────
+        er  = max(5, int(11 * u))
+        eox = max(6, int(hr // 3))
+        dead_eye_pos = (head_cx + eox, head_cy - max(2, int(5*u)))
+
+        # Milky eye base
+        pygame.draw.circle(surface, (205, 198, 182), dead_eye_pos, er)
+        pygame.draw.circle(surface, (165, 158, 145), dead_eye_pos, er,
+                           max(1, int(2*u)))
+        # Cloudy pupil — barely visible
+        pygame.draw.circle(surface, (135, 128, 118), dead_eye_pos,
+                           max(2, int(er * 0.5)))
+        # Blood vessels — small red lines radiating from pupil
+        for angle_deg in [20, 80, 150, 220, 300]:
+            va = math.radians(angle_deg)
+            vx1 = dead_eye_pos[0] + int(math.cos(va) * max(2, int(er * 0.4)))
+            vy1 = dead_eye_pos[1] + int(math.sin(va) * max(2, int(er * 0.4)))
+            vx2 = dead_eye_pos[0] + int(math.cos(va) * er)
+            vy2 = dead_eye_pos[1] + int(math.sin(va) * er)
+            pygame.draw.line(surface, (180, 40, 40),
+                             (vx1, vy1), (vx2, vy2),
+                             max(1, int(1.5 * u)))
+
+        # ── Normal left eye — dark, furious ───────────────────────────────
+        live_eye_pos = (head_cx - eox, head_cy - max(2, int(5*u)))
+        pygame.draw.circle(surface, (18, 16, 6), live_eye_pos, er + 1)
+        pygame.draw.circle(surface, (18, 16, 6), live_eye_pos, er)
+        pygame.draw.circle(surface, (255, 255, 255),
+                           (live_eye_pos[0] + max(1, int(3*u)),
+                            live_eye_pos[1] - max(1, int(2*u))),
+                           max(2, int(3*u)))
+
+        # ── Heavy brow — deep angry V ─────────────────────────────────────
+        brow_y = head_cy - er - max(4, int(18*u))
+        brow_thick = max(3, int(5*u))
+        pygame.draw.line(surface, darker,
+                         (head_cx - eox - max(4, int(8*u)), brow_y - max(1, int(3*u))),
+                         (head_cx - eox + max(3, int(6*u)), brow_y + max(3, int(7*u))),
+                         brow_thick)
+        pygame.draw.line(surface, darker,
+                         (head_cx + eox + max(4, int(8*u)), brow_y - max(1, int(3*u))),
+                         (head_cx + eox - max(3, int(6*u)), brow_y + max(3, int(7*u))),
+                         brow_thick)
+        # Brow furrow crease between eyes
+        pygame.draw.line(surface, darker,
+                         (head_cx - max(2, int(4*u)), brow_y + max(1, int(2*u))),
+                         (head_cx + max(2, int(4*u)), brow_y + max(3, int(6*u))),
+                         max(1, int(2*u)))
+
+        # ── Battle scar — X over left eye, blood drip ────────────────────
+        scar_cx, scar_cy = live_eye_pos
+        scar_r = max(6, int(13 * u))
+        # Outer scar lines — slightly darker red, thicker
+        for dx1, dy1, dx2, dy2 in [
+            (-scar_r, -scar_r,  scar_r,  scar_r),
+            ( scar_r, -scar_r, -scar_r,  scar_r),
+        ]:
+            pygame.draw.line(surface, fc((120, 12, 12)),
+                             (scar_cx + dx1, scar_cy + dy1),
+                             (scar_cx + dx2, scar_cy + dy2),
+                             max(2, int(4*u)))
+        # Inner scar highlight — brighter red on top
+        for dx1, dy1, dx2, dy2 in [
+            (-scar_r + max(1,int(2*u)), -scar_r + max(1,int(2*u)),
+              scar_r - max(1,int(2*u)),  scar_r - max(1,int(2*u))),
+            ( scar_r - max(1,int(2*u)), -scar_r + max(1,int(2*u)),
+             -scar_r + max(1,int(2*u)),  scar_r - max(1,int(2*u))),
+        ]:
+            pygame.draw.line(surface, blood,
+                             (scar_cx + dx1, scar_cy + dy1),
+                             (scar_cx + dx2, scar_cy + dy2),
+                             max(1, int(2*u)))
+        # Blood drip — longer, with two drops
+        drip_x     = scar_cx + max(1, int(2*u))
+        drip_start = scar_cy + scar_r
+        drip_end   = drip_start + max(10, int(18*u))
+        pygame.draw.line(surface, blood,
+                         (drip_x, drip_start), (drip_x, drip_end),
+                         max(1, int(2*u)))
+        # Main drip bulge
+        pygame.draw.circle(surface, blood,
+                           (drip_x, drip_end), max(3, int(5*u)))
+        # Smaller secondary drip midway
+        mid_drip = drip_start + (drip_end - drip_start) // 2
+        pygame.draw.circle(surface, blood,
+                           (drip_x + max(1, int(2*u)), mid_drip),
+                           max(2, int(3*u)))
+
+        # ── Chin scar ─────────────────────────────────────────────────────
+        chin_y = head_cy + int(hr * 0.55)
+        pygame.draw.line(surface, darker,
+                         (head_cx - max(4, int(7*u)), chin_y),
+                         (head_cx + max(4, int(7*u)), chin_y + max(1, int(2*u))),
+                         max(1, int(2*u)))
+
+        # ── Nose — wide, flat ─────────────────────────────────────────────
+        nw = max(8, int(16*u)); nh = max(5, int(12*u))
+        pygame.draw.ellipse(surface, dark,
+                            (head_cx - nw // 2, head_cy + int(hr*0.18), nw, nh))
+        for nox in [-max(3, int(5*u)), max(3, int(5*u))]:
+            pygame.draw.circle(surface, darker,
+                               (head_cx + nox, head_cy + int(hr*0.28)),
+                               max(2, int(4*u)))
+
+        # ── Mouth — stern heavy frown, one broken tusk ────────────────────
+        mouth_y = head_cy + int(hr * 0.52)
+        mouth_w = max(14, int(hr * 0.9))
+        # Stern flat line
+        pygame.draw.line(surface, darker,
+                         (head_cx - mouth_w // 2, mouth_y),
+                         (head_cx + mouth_w // 2, mouth_y),
+                         max(2, int(4*u)))
+        # Downturn at corners
+        for side in [-1, 1]:
+            pygame.draw.line(surface, darker,
+                             (head_cx + side * mouth_w // 2, mouth_y),
+                             (head_cx + side * (mouth_w // 2 + max(3, int(5*u))),
+                              mouth_y + max(3, int(6*u))),
+                             max(1, int(2*u)))
+        # One broken tusk — shorter, chipped at tip
+        tusk_x = head_cx - max(4, int(7*u))
+        pygame.draw.line(surface, bone,
+                         (tusk_x, mouth_y),
+                         (tusk_x, mouth_y + max(6, int(12*u))),
+                         max(3, int(5*u)))
+        # Chipped tip — polygon cut
+        pygame.draw.polygon(surface, dark, [
+            (tusk_x - max(2, int(4*u)), mouth_y + max(5, int(10*u))),
+            (tusk_x + max(2, int(4*u)), mouth_y + max(5, int(10*u))),
+            (tusk_x + max(3, int(5*u)), mouth_y + max(7, int(13*u))),
+        ])
+        # Second smaller tooth
+        pygame.draw.line(surface, bone_d,
+                         (head_cx + max(3, int(5*u)), mouth_y),
+                         (head_cx + max(3, int(5*u)), mouth_y + max(4, int(7*u))),
+                         max(2, int(3*u)))
+
+        # ── Warts — a few, prominent ──────────────────────────────────────
+        for wx, wy, wr in [
+            (head_cx + int(hr*0.4),  head_cy + int(hr*0.15), max(3, int(5*u))),
+            (head_cx - int(hr*0.28), head_cy - int(hr*0.28), max(2, int(4*u))),
+            (head_cx + int(hr*0.15), head_cy - int(hr*0.42), max(2, int(3*u))),
+        ]:
+            pygame.draw.circle(surface, fc((50, 105, 32)), (int(wx), int(wy)), wr)
+            pygame.draw.circle(surface, darker, (int(wx), int(wy)), wr,
+                               max(1, int(1.5*u)))
+# ---------------------------------------------------------------------------
 # Goblin King combat sprite
 # ---------------------------------------------------------------------------
 
@@ -997,6 +1634,15 @@ class CombatScene:
             self.goblin_max_hp = BOSS_MAX_HP
             self._goblin_name  = BOSS_NAME
             self._goblin_dmg   = BOSS_DAMAGE
+        elif enemy_type == "goblin_chieftain":
+            chieftain_size = int(self.SPRITE_SIZE * 1.25)
+            self.combat_goblin = CombatGoblinChieftain(ex, ey, chieftain_size)
+            from src.entities.entity_factory import get_definition
+            defn = get_definition("goblin_chieftain")
+            self.goblin_hp     = defn["hp"]
+            self.goblin_max_hp = defn["hp"]
+            self._goblin_name  = defn["display_name"]
+            self._goblin_dmg   = defn["damage"]
         elif enemy_type and enemy_type not in ("goblin", None):
             # Load stats from enemies.json via factory
             from src.entities.entity_factory import get_stat, get_definition

@@ -63,6 +63,7 @@ class Enemy:
         etype = self.enemy_type.lower().replace(" ","_")
         ts = self.tile_size
         if   etype=="goblin":            _draw_goblin(surface,draw_x,draw_y,t,ts)
+        elif etype=="goblin_chieftain": _draw_chieftain(surface,draw_x,draw_y,t,ts)
         elif etype=="skeleton":          _draw_skeleton(surface,draw_x,draw_y,t,ts)
         elif etype=="troll":             _draw_troll(surface,draw_x,draw_y,t,ts)
         elif etype=="dark_mage":         _draw_dark_mage(surface,draw_x,draw_y,t,ts)
@@ -366,6 +367,324 @@ def _draw_goblin(surf, x, y, t, ts):
     ]:
         pygame.draw.circle(surf, wart, (wx, wy), wr)
 
+def _draw_chieftain(surf, x, y, t, ts):
+    """
+    Goblin Chieftain — battle-scarred veteran.
+    Stockier than a regular goblin, scarred face, one dead eye,
+    blade-like horizontal ears, hide tunic, axe in left hand hanging low.
+    """
+    s  = ts
+    cx = x + s // 2
+    cy = y + s // 2
+
+    # Slower, heavier bob than regular goblin
+    bob = int(math.sin(t * 2.2) * max(2, s // 28))
+
+    skin   = (60, 120, 40)    # darker green than regular goblin
+    dark   = (35,  85, 22)
+    darker = (22,  60, 14)
+    hide   = (139,  88, 52)   # leather/hide tunic — the brown
+    hide_d = (105,  62, 30)
+    blood  = (160,  18, 18)
+    bone   = (220, 210, 180)
+    claw   = ( 38,  26, 12)
+
+    # ── Shadow — wider/heavier than regular goblin ───────────────────────
+    sh = pygame.Surface((s, s // 5), pygame.SRCALPHA)
+    pygame.draw.ellipse(sh, (0, 0, 0, 55), (0, 0, s, s // 5))
+    surf.blit(sh, (cx - s // 2 + s // 10, cy + s // 3))
+
+    # ── Clawed feet — splayed, prominent ────────────────────────────────
+    fw = max(10, s // 6)
+    fh = max(5,  s // 12)
+    foot_y = cy + s // 3 + bob
+    # Mild walk cycle
+    swing_f = math.sin(t * 5.5) * 0.5
+    stride  = max(3, s // 12)
+    lfoot_x = cx - max(4, s // 8) + int(swing_f * stride)
+    rfoot_x = cx + max(4, s // 8) - int(swing_f * stride)
+
+    for (fx, flip) in [(lfoot_x, -1), (rfoot_x, 1)]:
+        pygame.draw.ellipse(surf, skin, (fx - fw // 2, foot_y, fw, fh))
+        for fdx, fdy in [
+            (flip * max(8, s // 7),  max(8, s // 7)),
+            (flip * max(5, s // 10), max(9, s // 7)),
+            (flip * max(2, s // 18), max(9, s // 7)),
+        ]:
+            pygame.draw.line(surf, claw,
+                             (fx, foot_y + fh // 2),
+                             (fx + fdx, foot_y + fh // 2 + fdy),
+                             max(1, s // 36))
+
+    # ── Legs — thicker than regular goblin, hide-covered ────────────────
+    lw      = max(7, s // 8)
+    leg_top = cy + s // 10 + bob
+    l_swing = int(swing_f * stride)
+    r_swing = -l_swing
+    knee_off = max(5, s // 10)
+
+    lknee_x = cx - lw - max(2, s // 14) - knee_off // 2 + l_swing // 2
+    lknee_y = leg_top + max(10, s // 5)
+    pygame.draw.line(surf, hide,
+                     (cx - lw - max(2, s // 14), leg_top),
+                     (lknee_x, lknee_y), lw)
+    pygame.draw.line(surf, hide,
+                     (lknee_x, lknee_y), (lfoot_x, foot_y), lw)
+
+    rknee_x = cx + max(2, s // 14) + knee_off // 2 + r_swing // 2
+    rknee_y = leg_top + max(10, s // 5)
+    pygame.draw.line(surf, hide_d,
+                     (cx + max(2, s // 14), leg_top),
+                     (rknee_x, rknee_y), lw)
+    pygame.draw.line(surf, hide_d,
+                     (rknee_x, rknee_y), (rfoot_x, foot_y), lw)
+
+    # Knee bumps
+    pygame.draw.circle(surf, hide_d, (lknee_x, lknee_y), max(4, s // 16))
+    pygame.draw.circle(surf, hide_d, (rknee_x, rknee_y), max(4, s // 16))
+
+    # ── Body — wide, barrel-chested, hide tunic ──────────────────────────
+    bw = max(18, s * 9 // 16)
+    bh = max(14, s * 6 // 16)
+    body_top = cy - bh // 4 + bob
+    pygame.draw.ellipse(surf, hide,  (cx - bw // 2, body_top, bw, bh))
+    pygame.draw.ellipse(surf, hide_d,(cx - bw // 2, body_top, bw, bh),
+                        max(1, s // 40))
+    # Tunic centre stitch line
+    pygame.draw.line(surf, hide_d,
+                     (cx, body_top + max(2, s // 36)),
+                     (cx, body_top + bh - max(2, s // 36)),
+                     max(1, s // 48))
+    # Belt
+    belt_y = body_top + bh * 3 // 4
+    pygame.draw.line(surf, (80, 48, 20),
+                     (cx - bw // 2 + max(2, s // 32), belt_y),
+                     (cx + bw // 2 - max(2, s // 32), belt_y),
+                     max(3, s // 18))
+    pygame.draw.rect(surf, (120, 95, 40),
+                     (cx - max(4, s // 18), belt_y - max(2, s // 28),
+                      max(8, s // 9), max(4, s // 18)))
+
+    # ── Arms — green skin, thicker than regular goblin ───────────────────
+    arm_w = max(4, s // 10)
+
+    # RIGHT arm — hangs loose, claws down (relaxed)
+    rhand_x = cx + bw // 2 + max(4, s // 10)
+    rhand_y = body_top + bh + bob
+    pygame.draw.line(surf, skin,
+                     (cx + bw // 2 - max(1, s // 18), body_top + bh // 4 + bob),
+                     (rhand_x, rhand_y), arm_w)
+    pygame.draw.circle(surf, skin, (rhand_x, rhand_y), max(3, s // 15))
+    for fdx, fdy in [
+        (max(4, s // 12), max(7, s // 9)),
+        (max(2, s // 18), max(8, s // 8)),
+        (-max(2, s // 20), max(8, s // 8)),
+    ]:
+        pygame.draw.line(surf, claw,
+                         (rhand_x, rhand_y),
+                         (rhand_x + fdx, rhand_y + fdy),
+                         max(1, s // 44))
+
+    # LEFT arm — holds axe, arm hangs at side with axe low
+    lhand_x = cx - bw // 2 - max(6, s * 3 // 16)
+    lhand_y = body_top + bh * 7 // 8 + bob   # axe hangs low
+    pygame.draw.line(surf, skin,
+                     (cx - bw // 2 + max(1, s // 18), body_top + bh // 4 + bob),
+                     (cx - bw // 2 - max(4, s // 10), body_top + bh // 2 + bob),
+                     arm_w)
+    pygame.draw.line(surf, skin,
+                     (cx - bw // 2 - max(4, s // 10), body_top + bh // 2 + bob),
+                     (lhand_x, lhand_y), arm_w)
+    pygame.draw.circle(surf, skin, (lhand_x, lhand_y), max(3, s // 15))
+
+    # ── AXE — stone head on wooden handle, hanging low at left side ──────
+    # Handle — angled slightly, going from hand upward-left
+    hx1, hy1 = lhand_x, lhand_y
+    hx2 = lhand_x - max(10, s // 4)
+    hy2 = lhand_y - max(14, s * 3 // 8)
+    pygame.draw.line(surf, (120, 82, 42), (hx1, hy1), (hx2, hy2),
+                     max(3, s // 16))
+    # Handle wood grain
+    for frac in [0.3, 0.6]:
+        gx = int(hx1 + (hx2 - hx1) * frac)
+        gy = int(hy1 + (hy2 - hy1) * frac)
+        pygame.draw.line(surf, (90, 58, 26),
+                         (gx - max(2, s // 32), gy),
+                         (gx + max(2, s // 32), gy + max(2, s // 32)),
+                         max(1, s // 48))
+    # Axe head — stone grey, broad single-bit shape
+    ax_cx = hx2  # top of handle = where head sits
+    ax_cy = hy2
+    # Axe head is a fat wedge pointing left
+    head_w = max(10, s // 4)
+    head_h = max(12, s * 3 // 8)
+    axe_pts = [
+        (ax_cx,               ax_cy - head_h // 4),    # top socket
+        (ax_cx - head_w,      ax_cy - head_h // 2),    # top blade tip
+        (ax_cx - head_w - max(4, s // 16), ax_cy),     # blade belly point
+        (ax_cx - head_w,      ax_cy + head_h // 3),    # bottom blade tip
+        (ax_cx,               ax_cy + head_h // 8),    # bottom socket
+    ]
+    pygame.draw.polygon(surf, (145, 140, 132), axe_pts)
+    pygame.draw.polygon(surf, ( 90,  86,  80), axe_pts, max(1, s // 40))
+    # Edge highlight
+    pygame.draw.line(surf, (200, 196, 190),
+                     (ax_cx - head_w,      ax_cy - head_h // 2),
+                     (ax_cx - head_w - max(4, s // 16), ax_cy),
+                     max(1, s // 40))
+    # Socket band on handle
+    pygame.draw.rect(surf, (80, 75, 70),
+                     (ax_cx - max(3, s // 22), ax_cy - max(4, s // 16),
+                      max(6, s // 11), max(4, s // 16)))
+
+    # ── Neck ─────────────────────────────────────────────────────────────
+    neck_w = max(5, s // 9)
+    neck_top = body_top - max(4, s // 14)
+    pygame.draw.line(surf, skin,
+                     (cx, body_top + bob),
+                     (cx, neck_top + bob), neck_w)
+
+    # ── Head — EARS drawn BEFORE head fill ───────────────────────────────
+    hr      = max(10, s * 6 // 20)   # slightly bigger head than regular goblin
+    head_cx = cx
+    head_cy = neck_top - hr + bob
+    # Ear shape: wide, blade-like, nearly horizontal (as in your sketch)
+    ear_len = max(10, s * 5 // 16)
+    ear_h   = max(4, s // 12)
+
+    # Left ear — pointing upper-left
+    left_ear = [
+        (head_cx - hr + max(1, s // 28),  head_cy - hr // 5),
+        (head_cx - hr - ear_len,          head_cy - ear_h),
+        (head_cx - hr // 2,               head_cy - hr // 2),
+    ]
+    pygame.draw.polygon(surf, skin, left_ear)
+    pygame.draw.polygon(surf, dark, left_ear, max(1, s // 48))
+    pygame.draw.polygon(surf, darker, [
+        (head_cx - hr + max(2, s // 24),  head_cy - hr // 5 + max(1, s // 48)),
+        (head_cx - hr - ear_len + max(5, s // 16), head_cy - ear_h + max(2, s // 28)),
+        (head_cx - hr // 2 + max(2, s // 24), head_cy - hr // 2 + max(1, s // 48)),
+    ])
+
+    # Right ear — pointing upper-right
+    right_ear = [
+        (head_cx + hr - max(1, s // 28),  head_cy - hr // 5),
+        (head_cx + hr + ear_len,          head_cy - ear_h),
+        (head_cx + hr // 2,               head_cy - hr // 2),
+    ]
+    pygame.draw.polygon(surf, skin, right_ear)
+    pygame.draw.polygon(surf, dark, right_ear, max(1, s // 48))
+    pygame.draw.polygon(surf, darker, [
+        (head_cx + hr - max(2, s // 24),  head_cy - hr // 5 + max(1, s // 48)),
+        (head_cx + hr + ear_len - max(5, s // 16), head_cy - ear_h + max(2, s // 28)),
+        (head_cx + hr // 2 - max(2, s // 24), head_cy - hr // 2 + max(1, s // 48)),
+    ])
+
+    # Head fill — covers ear bases
+    pygame.draw.circle(surf, skin, (head_cx, head_cy), hr)
+    pygame.draw.circle(surf, dark, (head_cx, head_cy), hr, max(1, s // 40))
+
+    # ── Dead right eye (white/milky) ──────────────────────────────────────
+    er  = max(3, s // 18)
+    eox = max(4, hr // 3)
+    # Dead eye (right side of face — left on screen since facing us)
+    pygame.draw.circle(surf, (210, 205, 190), (head_cx + eox, head_cy - max(1, s // 28)), er)
+    pygame.draw.circle(surf, (160, 155, 148), (head_cx + eox, head_cy - max(1, s // 28)),
+                       max(1, er - 1), max(1, s // 48))
+    # Pupil barely visible
+    pygame.draw.circle(surf, (130, 125, 118), (head_cx + eox, head_cy - max(1, s // 28)),
+                       max(1, er // 2))
+
+    # Normal left eye — dark, angry
+    pygame.draw.circle(surf, (22, 20, 8), (head_cx - eox, head_cy - max(1, s // 28)),
+                       er + 1)
+    pygame.draw.circle(surf, (22, 20, 8), (head_cx - eox, head_cy - max(1, s // 28)), er)
+    pygame.draw.circle(surf, (255, 255, 255),
+                       (head_cx - eox + max(1, s // 48),
+                        head_cy - max(1, s // 28) - max(1, s // 48)),
+                       max(1, er // 2))
+
+    # ── Brow — heavy, angry V ────────────────────────────────────────────
+    brow_y = head_cy - er - max(3, s // 20)
+    pygame.draw.line(surf, darker,
+                     (head_cx - eox - max(3, s // 24), brow_y - max(1, s // 40)),
+                     (head_cx - eox + max(2, s // 28), brow_y + max(2, s // 22)),
+                     max(2, s // 26))
+    pygame.draw.line(surf, darker,
+                     (head_cx + eox + max(3, s // 24), brow_y - max(1, s // 40)),
+                     (head_cx + eox - max(2, s // 28), brow_y + max(2, s // 22)),
+                     max(2, s // 26))
+
+    # ── Battle scars — X scar over left eye with blood drip ──────────────
+    scar_cx = head_cx - eox
+    scar_cy = head_cy - max(1, s // 28)
+    scar_r  = max(4, s // 10)
+    # X slash lines (red)
+    for dx1, dy1, dx2, dy2 in [
+        (-scar_r, -scar_r,  scar_r,  scar_r),
+        ( scar_r, -scar_r, -scar_r,  scar_r),
+    ]:
+        pygame.draw.line(surf, blood,
+                         (scar_cx + dx1, scar_cy + dy1),
+                         (scar_cx + dx2, scar_cy + dy2),
+                         max(1, s // 36))
+    # Blood drip from scar down cheek
+    drip_x = scar_cx + max(1, s // 40)
+    drip_start = scar_cy + scar_r
+    drip_end   = drip_start + max(6, s // 8)
+    pygame.draw.line(surf, blood,
+                     (drip_x, drip_start), (drip_x, drip_end),
+                     max(1, s // 44))
+    # Small drip bulge at bottom
+    pygame.draw.circle(surf, blood,
+                       (drip_x, drip_end), max(2, s // 28))
+
+    # Chin scar — short horizontal slash
+    chin_y = head_cy + hr * 2 // 3
+    pygame.draw.line(surf, darker,
+                     (head_cx - max(3, s // 18), chin_y),
+                     (head_cx + max(3, s // 18), chin_y + max(1, s // 40)),
+                     max(1, s // 40))
+
+    # ── Nose — wide, flat ────────────────────────────────────────────────
+    nw = max(6, s // 9)
+    nh = max(4, s // 12)
+    pygame.draw.ellipse(surf, dark,
+                        (head_cx - nw // 2, head_cy + hr // 6, nw, nh))
+    for nox in [-max(2, s // 22), max(2, s // 22)]:
+        pygame.draw.circle(surf, darker,
+                           (head_cx + nox, head_cy + hr // 4),
+                           max(1, s // 40))
+
+    # ── Mouth — stern, closed (not snarling like regular goblin) ─────────
+    mouth_y = head_cy + hr // 2
+    mouth_w = max(7, hr * 3 // 4)
+    # Flat stern line
+    pygame.draw.line(surf, darker,
+                     (head_cx - mouth_w // 2, mouth_y),
+                     (head_cx + mouth_w // 2, mouth_y),
+                     max(2, s // 30))
+    # Slight downturn at corners — battle-weary frown
+    pygame.draw.line(surf, darker,
+                     (head_cx - mouth_w // 2, mouth_y),
+                     (head_cx - mouth_w // 2 - max(2, s // 32), mouth_y + max(2, s // 28)),
+                     max(1, s // 44))
+    pygame.draw.line(surf, darker,
+                     (head_cx + mouth_w // 2, mouth_y),
+                     (head_cx + mouth_w // 2 + max(2, s // 32), mouth_y + max(2, s // 28)),
+                     max(1, s // 44))
+    # One prominent lower tusk — broken, shorter than a young goblin's
+    pygame.draw.line(surf, bone,
+                     (head_cx - max(3, s // 20), mouth_y),
+                     (head_cx - max(3, s // 20), mouth_y + max(4, s // 14)),
+                     max(2, s // 30))
+
+    # ── A few warts — fewer, bigger than regular goblin ──────────────────
+    for wx, wy, wr in [
+        (head_cx + hr // 3, head_cy + hr // 6, max(2, s // 30)),
+        (head_cx - hr // 4, head_cy - hr // 4, max(2, s // 34)),
+    ]:
+        pygame.draw.circle(surf, (50, 105, 32), (wx, wy), wr)
 
 def _draw_skeleton(surf, x, y, t, ts):
     s  = ts
