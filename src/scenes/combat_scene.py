@@ -1068,7 +1068,7 @@ class CombatGoblinChieftain:
         hx1, hy1 = lhand
         handle_len = int(100 * u)
         # Handle angle: idle=up-left, windup=more upright, swing=swept forward-down
-        base_angle = math.radians(145)   # up and slightly left
+        base_angle = math.radians(250)   # up and slightly left
         windup_rotate = self._axe_windup * math.radians(30)  # rotate clockwise (back)
         swing_rotate  = self._axe_swing  * math.radians(90)  # sweep forward hard
         axe_angle = base_angle + windup_rotate - swing_rotate
@@ -2159,6 +2159,14 @@ class CombatScene:
                 self.inventory.remove_one(PotionItem)
                 return "The goblin snatches a potion from your pack!"
             return "The goblin rummages through your pack but finds nothing!"
+        
+        elif etype == "goblin_chieftain":
+            defence = self.armour.total_defence() if self.armour else 0
+            dmg = max(1, (self._goblin_dmg * 2) - defence)
+            self.player_hp = max(0, self.player_hp - dmg)
+            self.combat_player.start_flash()
+            return (f"The Chieftain brings his axe down with brutal force! "
+                f"{dmg} damage! ({self.player_hp}/{self.player_max_hp} HP)")
 
         elif etype == "skeleton":
             self._parry_active = True

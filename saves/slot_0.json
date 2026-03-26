@@ -1,15 +1,20 @@
 {
-  "playtime_seconds": 232.8092339038849,
-  "enemies_defeated": 1,
+  "playtime_seconds": 192.52953672409058,
+  "enemies_defeated": 23,
   "quests_cleared": 0,
-  "gold_collected": 15,
+  "gold_collected": 200,
   "chests_opened": 0,
-  "player_hp": 26,
+  "player_hp": 30,
   "player_max_hp": 30,
   "dungeon_cleared": false,
   "current_location": "dungeon",
-  "player_floor": 1,
+  "player_floor": 4,
   "inventory_data": [
+    {
+      "type": "PotionItem",
+      "kwargs": {},
+      "stack_count": 21
+    },
     {
       "type": "DebugSwordItem",
       "kwargs": {
@@ -20,21 +25,26 @@
     {
       "type": "GoldItem",
       "kwargs": {
-        "amount": 15
+        "amount": 200
       },
-      "stack_count": 15
+      "stack_count": 200
+    },
+    {
+      "type": "RoomKeyItem",
+      "kwargs": {},
+      "stack_count": 1
     },
     {
       "type": "CandleItem",
       "kwargs": {},
-      "stack_count": 1
+      "stack_count": 9
     }
   ],
   "door_states": [
+    false,
+    false,
     true,
-    true,
-    true,
-    true
+    false
   ],
   "chest_states": [
     {
@@ -46,6 +56,23 @@
           "stack_count": 1
         },
         {
+          "type": "GoldItem",
+          "kwargs": {
+            "amount": 20
+          },
+          "stack_count": 1
+        },
+        {
+          "type": "PotionItem",
+          "kwargs": {},
+          "stack_count": 1
+        }
+      ]
+    },
+    {
+      "opened": false,
+      "items": [
+        {
           "type": "PotionItem",
           "kwargs": {},
           "stack_count": 1
@@ -63,8 +90,10 @@
       "opened": false,
       "items": [
         {
-          "type": "PotionItem",
-          "kwargs": {},
+          "type": "GoldItem",
+          "kwargs": {
+            "amount": 10
+          },
           "stack_count": 1
         },
         {
@@ -73,24 +102,17 @@
             "amount": 15
           },
           "stack_count": 1
-        }
-      ]
-    },
-    {
-      "opened": false,
-      "items": [
-        {
-          "type": "GoldItem",
-          "kwargs": {
-            "amount": 10
-          },
-          "stack_count": 1
         },
         {
           "type": "GoldItem",
           "kwargs": {
-            "amount": 10
+            "amount": 20
           },
+          "stack_count": 1
+        },
+        {
+          "type": "PotionItem",
+          "kwargs": {},
           "stack_count": 1
         },
         {
@@ -108,24 +130,59 @@
     "boots": null
   },
   "stats_data": {
-    "level": 1,
-    "exp": 15,
+    "level": 4,
+    "exp": 30,
     "stat_points": 0,
     "dexterity": 0,
-    "strength": 0,
+    "strength": 3,
     "magic_mastery": 0
   },
   "quest_data": {
     "active": [],
     "completed": [],
     "available": [
-      "kill_goblin_king",
-      "kill_skeletons_5",
-      "kill_rats_5",
-      "kill_bone_lord"
+      "kill_goblins_5",
+      "survive_25_rounds",
+      "kill_lich_king",
+      "kill_goblin_king"
     ]
   },
-  "floor_states_data": {},
-  "save_time": "2026-03-23  13:25",
+  "floor_states_data": {
+    "1": {
+      "unlocked_doors": [
+        "key_to_chest",
+        "floor_circle",
+        "key_to_circle",
+        "key_to_chieftain"
+      ]
+    },
+    "2": {
+      "unlocked_doors": [
+        "floor_circle",
+        "key_c_to_big",
+        "key_b_to_c",
+        "key_a_to_b",
+        "key_b_to_d",
+        "key_d_to_e",
+        "key_spawn_to_a"
+      ]
+    },
+    "3": {
+      "unlocked_doors": [
+        "key_hub_to_big",
+        "key_big_to_small",
+        "key_floor_circle",
+        "floor_circle"
+      ]
+    },
+    "4": {
+      "unlocked_doors": [
+        "key_r1_to_r2",
+        "key_spawn_to_r1",
+        "key_r2_to_arena"
+      ]
+    }
+  },
+  "save_time": "2026-03-26  22:16",
   "slot": 0
 }
