@@ -1372,156 +1372,419 @@ class CombatGoblinChieftain:
 # Goblin King combat sprite
 # ---------------------------------------------------------------------------
 
+# ============================================================
+# PART 2: Replace the existing CombatGoblinKing class in combat_scene.py
+# ============================================================
+ 
 class CombatGoblinKing:
-    """Big imposing boss sprite — drawn on the RIGHT side, facing left."""
-
-    def __init__(self, x: int, y: int, size: int):
-        self.base_x   = float(x)
-        self.base_y   = float(y)
-        self.x        = float(x)
-        self.y        = float(y)
-        self.size     = size
-        self.anim_time    = 0.0
-        self.flash_timer  = 0.0
-        self.FLASH_DUR    = 0.5
-        self.lunging      = False
-        self.lunge_timer  = 0.0
-        self.LUNGE_DUR    = 0.45
-
-    def start_lunge(self):
-        self.lunging = True
+    """
+    Goblin King combat sprite — fat, arrogant, dangerous.
+    Faces LEFT toward the player. Bone club swings overhead.
+    """
+ 
+    PHASE_IDLE     = "idle"
+    PHASE_WALK_IN  = "walk_in"
+    PHASE_WINDUP   = "windup"
+    PHASE_SWING    = "swing"
+    PHASE_HOLD     = "hold"
+    PHASE_SNAPBACK = "snapback"
+ 
+    WALK_DUR   = 0.50
+    WINDUP_DUR = 0.28
+    SWING_DUR  = 0.16
+    HOLD_DUR   = 0.14
+    SNAP_DUR   = 0.30
+ 
+    def __init__(self, x, y, size):
+        self.base_x  = float(x)
+        self.base_y  = float(y)
+        self.x       = float(x)
+        self.y       = float(y)
+        self.size    = size
+        self.anim_time   = 0.0
+        self.flash_timer = 0.0
+        self.FLASH_DUR   = 0.5
+        self.lunging     = False
         self.lunge_timer = 0.0
-
+        self.LUNGE_DUR   = (self.WALK_DUR + self.WINDUP_DUR +
+                            self.SWING_DUR + self.HOLD_DUR + self.SNAP_DUR)
+        self._phase       = self.PHASE_IDLE
+        self._phase_t     = 0.0
+        self._walk_offset = 0.0
+        self._club_windup = 0.0
+        self._club_swing  = 0.0
+ 
+    def start_lunge(self):
+        self.lunging      = True
+        self.lunge_timer  = 0.0
+        self._phase       = self.PHASE_WALK_IN
+        self._phase_t     = 0.0
+        self._walk_offset = 0.0
+        self._club_windup = 0.0
+        self._club_swing  = 0.0
+ 
     def start_flash(self):
         self.flash_timer = self.FLASH_DUR
-
+ 
     def update(self, dt):
         self.anim_time   += dt
         self.flash_timer  = max(0.0, self.flash_timer - dt)
-        if self.lunging:
-            self.lunge_timer += dt
-            t = self.lunge_timer / self.LUNGE_DUR
-            if t >= 1.0:
-                self.lunging = False
+ 
+        if not self.lunging:
+            self._phase       = self.PHASE_IDLE
+            self._club_windup = 0.0
+            self._club_swing  = 0.0
+            return
+ 
+        self.lunge_timer += dt
+        self._phase_t    += dt
+ 
+        if self._phase == self.PHASE_WALK_IN:
+            prog = min(1.0, self._phase_t / self.WALK_DUR)
+            ease = 1 - (1 - prog) ** 2
+            self._walk_offset = ease * self.size * 0.40
+            if self._phase_t >= self.WALK_DUR:
+                self._phase   = self.PHASE_WINDUP
+                self._phase_t = 0.0
+ 
+        elif self._phase == self.PHASE_WINDUP:
+            prog = min(1.0, self._phase_t / self.WINDUP_DUR)
+            self._club_windup = prog
+            self._club_swing  = 0.0
+            if self._phase_t >= self.WINDUP_DUR:
+                self._phase   = self.PHASE_SWING
+                self._phase_t = 0.0
+ 
+        elif self._phase == self.PHASE_SWING:
+            prog = min(1.0, self._phase_t / self.SWING_DUR)
+            ease = 1 - (1 - prog) ** 3
+            self._club_windup = 1.0 - ease
+            self._club_swing  = ease
+            if self._phase_t >= self.SWING_DUR:
+                self._phase       = self.PHASE_HOLD
+                self._phase_t     = 0.0
+                self._club_windup = 0.0
+                self._club_swing  = 1.0
+ 
+        elif self._phase == self.PHASE_HOLD:
+            self._club_swing = 1.0
+            if self._phase_t >= self.HOLD_DUR:
+                self._phase   = self.PHASE_SNAPBACK
+                self._phase_t = 0.0
+ 
+        elif self._phase == self.PHASE_SNAPBACK:
+            prog = min(1.0, self._phase_t / self.SNAP_DUR)
+            ease = 1 - (1 - prog) ** 2
+            self._club_swing  = 1.0 - ease
+            self._walk_offset = (1.0 - ease) * self.size * 0.40
+            if self._phase_t >= self.SNAP_DUR:
+                self.lunging      = False
+                self._phase       = self.PHASE_IDLE
+                self._phase_t     = 0.0
+                self._club_swing  = 0.0
+                self._walk_offset = 0.0
                 self.x = self.base_x
                 self.y = self.base_y
-            else:
-                self.x = self.base_x - math.sin(t * math.pi) * self.size * 1.2
-                self.y = self.base_y
-
+                return
+ 
+        self.x = self.base_x - self._walk_offset
+ 
     def draw(self, surface):
-        s   = self.size
-        cx  = int(self.x)
-        cy  = int(self.y)
-        bob = math.sin(self.anim_time * 2.0) * 4 if not self.lunging else 0
+        s  = self.size
+        cx = int(self.x)
+        cy = int(self.y)
+ 
+        if self._phase == self.PHASE_IDLE:
+            bob = math.sin(self.anim_time * 1.6) * 5
+        else:
+            bob = 0
+ 
         flash = self.flash_timer / self.FLASH_DUR if self.flash_timer > 0 else 0.0
-
+ 
         def fc(col):
-            return _lerp_col(col, (255,255,255), flash*0.65)
-
-        # Shadow (bigger than regular goblin)
-        sh = pygame.Surface((int(s*1.4), s//3), pygame.SRCALPHA)
-        pygame.draw.ellipse(sh,(0,0,0,60),(0,0,int(s*1.4),s//3))
-        surface.blit(sh,(cx-int(s*0.7), cy+int(s*0.55)-s//6))
-
-        # Legs — thick, powerful
-        lc = fc((50,100,40))
-        lw, lh = s//3, int(s*0.45)
-        lby = cy + int(s*0.3) + int(bob)
-        pygame.draw.rect(surface,lc,(cx-lw-6,lby,lw,lh))
-        pygame.draw.rect(surface,lc,(cx+6,   lby,lw,lh))
-        # Boots
-        pygame.draw.rect(surface,fc((35,55,20)),(cx-lw-8,lby+lh-8,lw+4,12))
-        pygame.draw.rect(surface,fc((35,55,20)),(cx+4,   lby+lh-8,lw+4,12))
-
-        # Body — barrel-chested
-        bw, bh = int(s*0.85), int(s*0.6)
-        bx = cx - bw//2
-        by = cy - bh//4 + int(bob)
-        pygame.draw.rect(surface,fc((65,128,50)),(bx,by,bw,bh))
-        pygame.draw.rect(surface,fc((40,85,30)),(bx,by,bw,bh),2)
-        # Armour plates on body
+            return tuple(min(255, int(col[i] + (255 - col[i]) * flash * 0.65))
+                         for i in range(3))
+ 
+        u = s / 240
+ 
+        skin   = fc((72,  148,  55))
+        dark   = fc((42,  105,  30))
+        darker = fc((26,   72,  16))
+        hide   = fc((135,  85,  48))
+        hide_d = fc((100,  60,  28))
+        gold   = fc((210, 168,  30))
+        gold_d = fc((155, 118,  14))
+        gold_l = fc((245, 215,  80))
+        bone_c = fc((225, 215, 185))
+        bone_d = fc((175, 162, 130))
+        boot_c = fc(( 52, 118,  38))
+ 
+        # ── Shadow — very wide ───────────────────────────────────────────
+        sh = pygame.Surface((int(s*1.5), int(s*0.16)), pygame.SRCALPHA)
+        pygame.draw.ellipse(sh, (0,0,0,55), (0,0,int(s*1.5),int(s*0.16)))
+        surface.blit(sh, (cx - int(s*0.75), cy + int(s*0.46) + int(bob)))
+ 
+        # ── Green boots — wide stubby ────────────────────────────────────
+        fw = max(16, int(28*u)); fh = max(8, int(13*u))
+        foot_y = cy + int(100*u) + int(bob)
+        for fx in [cx - int(26*u), cx + int(26*u)]:
+            pygame.draw.ellipse(surface, boot_c,
+                                (fx - fw, foot_y - fh//2, fw*2, fh))
+            pygame.draw.ellipse(surface, dark,
+                                (fx - fw, foot_y - fh//2, fw*2, fh),
+                                max(1, int(2*u)))
+ 
+        # ── Short stubby legs ────────────────────────────────────────────
+        lw = max(12, int(26*u)); lh = max(14, int(30*u))
+        leg_top_y = cy + int(68*u) + int(bob)
+        for lx in [cx - int(22*u), cx + int(22*u)]:
+            pygame.draw.rect(surface, hide,
+                             (lx - lw//2, leg_top_y, lw, lh))
+            pygame.draw.rect(surface, hide_d,
+                             (lx - lw//2, leg_top_y, lw, lh),
+                             max(1, int(2*u)))
+ 
+        # ── Big round belly — green hangs below tunic ────────────────────
+        belly_w = max(28, int(130*u)); belly_h = max(20, int(85*u))
+        belly_y = cy - int(10*u) + int(bob)
+        pygame.draw.ellipse(surface, skin,
+                            (cx - belly_w//2, belly_y, belly_w, belly_h))
+        pygame.draw.ellipse(surface, dark,
+                            (cx - belly_w//2, belly_y, belly_w, belly_h),
+                            max(1, int(2*u)))
+        # Belly button
+        pygame.draw.circle(surface, darker,
+                           (cx, belly_y + int(belly_h * 0.68)),
+                           max(3, int(5*u)))
+ 
+        # ── Hide tunic — upper chest only ────────────────────────────────
+        bw = max(22, int(110*u)); bh = max(18, int(65*u))
+        body_top = cy - int(55*u) + int(bob)
+        pygame.draw.ellipse(surface, hide,
+                            (cx - bw//2, body_top, bw, bh))
+        pygame.draw.ellipse(surface, hide_d,
+                            (cx - bw//2, body_top, bw, bh),
+                            max(1, int(2*u)))
+        # Stitch line
+        pygame.draw.line(surface, hide_d,
+                         (cx, body_top + max(2, int(5*u))),
+                         (cx, body_top + bh - max(2, int(5*u))),
+                         max(1, int(2*u)))
+ 
+        # ── CLUB ANIMATION — windup lifts club back, swing crashes down ──
+        club_windup_lift   = int(self._club_windup * 50 * u)
+        club_swing_forward = int(self._club_swing  * 80 * u)
+ 
+        # ── RIGHT arm — long, dangles lazily ─────────────────────────────
+        arm_w = max(7, int(17*u))
+        r_counter = int(self._club_swing * 20 * u)
+        shoulder_r = (cx + int(52*u),  cy - int(35*u) + int(bob))
+        elbow_r    = (cx + int(80*u) + r_counter, cy + int(20*u) + int(bob))
+        rhand      = (cx + int(95*u) + r_counter, cy + int(65*u) + int(bob))
+        pygame.draw.line(surface, skin, shoulder_r, elbow_r, arm_w)
+        pygame.draw.line(surface, skin, elbow_r, rhand, max(5, int(14*u)))
+        pygame.draw.circle(surface, skin, rhand, max(6, int(10*u)))
+        for cdx, cdy in [(int(8*u), int(10*u)), (0, int(12*u)),
+                         (-int(8*u), int(10*u))]:
+            pygame.draw.line(surface, darker, rhand,
+                             (rhand[0]+cdx, rhand[1]+cdy),
+                             max(1, int(2*u)))
+ 
+        # ── LEFT arm — raised, holds club ────────────────────────────────
+        shoulder_l = (cx - int(52*u), cy - int(35*u) + int(bob))
+        elbow_l    = (cx - int(80*u) + club_windup_lift - club_swing_forward,
+                      cy - int(50*u) + club_windup_lift // 2 + int(bob))
+        lhand      = (cx - int(95*u) + club_windup_lift - club_swing_forward,
+                      cy - int(80*u) + club_windup_lift + int(bob))
+        pygame.draw.line(surface, skin, shoulder_l, elbow_l, arm_w)
+        pygame.draw.line(surface, skin, elbow_l, lhand, max(5, int(14*u)))
+        pygame.draw.circle(surface, skin, lhand, max(6, int(10*u)))
+ 
+        # ── Bone club — big rounded knob, follows arm angle ───────────────
+        base_angle    = math.radians(250)
+        windup_rotate = self._club_windup * math.radians(35)
+        swing_rotate  = self._club_swing  * math.radians(100)
+        club_angle    = base_angle + windup_rotate - swing_rotate
+ 
+        club_len = int(110 * u)
+        hx1, hy1 = lhand
+        hx2 = int(hx1 + math.cos(club_angle) * club_len)
+        hy2 = int(hy1 + math.sin(club_angle) * club_len)
+ 
+        # Handle
+        pygame.draw.line(surface, bone_d, (hx1,hy1), (hx2,hy2),
+                         max(5, int(10*u)))
+        pygame.draw.line(surface, bone_c, (hx1,hy1), (hx2,hy2),
+                         max(2, int(5*u)))
+        # Grip wrap
         for i in range(3):
-            ax = bx + 4 + i*(bw//3)
-            pygame.draw.rect(surface,fc((80,65,40)),(ax,by+4,bw//3-4,bh//3))
-            pygame.draw.rect(surface,fc((60,48,28)),(ax,by+4,bw//3-4,bh//3),1)
-
-        # Arms — massive
-        arm_y = by + bh//5
-        # Left arm — raised with giant club toward player
-        pygame.draw.line(surface,fc((55,105,42)),(cx-bw//2,arm_y),
-                         (cx-bw//2-s//2,arm_y-s//4),6)
-        # Giant spiked club
-        club_x = cx-bw//2-s//2
-        club_y = arm_y-s//4
-        pygame.draw.line(surface,fc((110,78,42)),(club_x,club_y),
-                         (club_x-s//3,club_y-s//2),7)
-        # Club head (big)
-        pygame.draw.circle(surface,fc((90,62,30)),(club_x-s//3,club_y-s//2),s//5)
-        pygame.draw.circle(surface,fc((70,48,22)),(club_x-s//3,club_y-s//2),s//5,2)
-        # Spikes on club
-        for sa in [0,60,120,180,240,300]:
-            ra = math.radians(sa)
-            spx = club_x-s//3+int(math.cos(ra)*s//5)
-            spy = club_y-s//2+int(math.sin(ra)*s//5)
-            pygame.draw.line(surface,fc((140,100,50)),
-                             (club_x-s//3,club_y-s//2),(spx,spy),3)
-        # Right arm
-        pygame.draw.line(surface,fc((55,105,42)),(cx+bw//2,arm_y),
-                         (cx+bw//2+s//5,arm_y+s//6),5)
-
-        # Head — big and menacing
-        hr = int(s*0.35)
-        hx, hy = cx, by-hr+int(bob)
-        # Head base
-        pygame.draw.circle(surface,fc((80,148,60)),(hx,hy),hr)
-        pygame.draw.circle(surface,fc((55,105,42)),(hx,hy),hr,3)
-
-        # Crown — jagged iron crown
-        crown_col = fc((80,68,40))
-        crown_pts = [
-            (hx-hr,   hy-hr+6),
-            (hx-hr+4, hy-hr-12),
-            (hx-hr+10,hy-hr+2),
-            (hx-hr+16,hy-hr-16),
-            (hx,      hy-hr-4),
-            (hx+hr-16,hy-hr-16),
-            (hx+hr-10,hy-hr+2),
-            (hx+hr-4, hy-hr-12),
-            (hx+hr,   hy-hr+6),
-        ]
-        pygame.draw.polygon(surface,crown_col,crown_pts)
-        pygame.draw.polygon(surface,fc((110,92,55)),crown_pts,2)
-        # Crown jewels
-        for jx,jy,jc in [(hx-hr+16,hy-hr-10,(200,60,60)),
-                          (hx,       hy-hr-4, (60,180,60)),
-                          (hx+hr-16,hy-hr-10,(60,60,200))]:
-            pygame.draw.circle(surface,fc(jc),(jx,jy),4)
-
-        # Ears — huge and pointy
-        ec = fc((70,130,55))
-        pygame.draw.polygon(surface,ec,[
-            (hx-hr,     hy-4),
-            (hx-hr-18,  hy-22),
-            (hx-hr+5,   hy+6)])
-        pygame.draw.polygon(surface,ec,[
-            (hx+hr,     hy-4),
-            (hx+hr+18,  hy-22),
-            (hx+hr-5,   hy+6)])
-
-        # Eyes — glowing red (angry boss)
-        eox = hr//2
-        eye_col = fc((240,50,30))
-        pygame.draw.circle(surface,eye_col,(hx-eox,hy),5)
-        pygame.draw.circle(surface,eye_col,(hx+eox,hy),5)
-        pygame.draw.circle(surface,(255,180,100),(hx-eox,hy),2)
-        pygame.draw.circle(surface,(255,180,100),(hx+eox,hy),2)
-
-        # Snarl — jagged teeth
-        my = hy+hr//2
-        pygame.draw.line(surface,fc((15,10,5)),(hx-8,my),(hx+8,my),3)
-        for tx in [hx-6,hx-2,hx+2,hx+6]:
-            pygame.draw.line(surface,fc((230,220,200)),(tx,my),(tx,my-5),2)
+            frac = 0.08 + i * 0.07
+            gx = int(hx1 + (hx2-hx1)*frac)
+            gy = int(hy1 + (hy2-hy1)*frac)
+            pygame.draw.line(surface, fc((80, 56, 24)),
+                             (int(gx - math.sin(club_angle)*int(7*u)),
+                              int(gy + math.cos(club_angle)*int(7*u))),
+                             (int(gx + math.sin(club_angle)*int(7*u)),
+                              int(gy - math.cos(club_angle)*int(7*u))),
+                             max(2, int(5*u)))
+        # Big round knob at end
+        knob_r = max(10, int(22*u))
+        pygame.draw.circle(surface, bone_d, (hx2, hy2), knob_r)
+        pygame.draw.circle(surface, bone_c, (hx2, hy2), knob_r,
+                           max(2, int(3*u)))
+        # Knob highlight
+        pygame.draw.circle(surface, fc((245, 238, 215)),
+                           (hx2 - max(2, int(4*u)), hy2 - max(2, int(4*u))),
+                           max(3, int(7*u)))
+        # Knob crack details
+        for crack_angle in [30, 120, 220]:
+            ca = math.radians(crack_angle)
+            pygame.draw.line(surface, bone_d,
+                             (hx2, hy2),
+                             (int(hx2 + math.cos(ca)*knob_r*0.7),
+                              int(hy2 + math.sin(ca)*knob_r*0.7)),
+                             max(1, int(2*u)))
+ 
+        # ── Neck ─────────────────────────────────────────────────────────
+        neck_w = max(8, int(24*u))
+        pygame.draw.line(surface, skin,
+                         (cx, body_top + int(bob)),
+                         (cx, body_top - int(18*u) + int(bob)), neck_w)
+ 
+        # ── Head — small ears before fill ────────────────────────────────
+        hr      = max(16, int(64*u))
+        head_cx = cx
+        head_cy = cy - int(110*u) + int(bob)
+ 
+        ear_len = max(6, int(16*u))
+        for sign in [-1, 1]:
+            ear = [
+                (head_cx + sign*(hr - max(1, int(4*u))), head_cy - hr//4),
+                (head_cx + sign*(hr + ear_len),           head_cy - hr//2 - ear_len//2),
+                (head_cx + sign*(hr//2),                  head_cy - hr//2),
+            ]
+            pygame.draw.polygon(surface, skin,  ear)
+            pygame.draw.polygon(surface, dark,  ear, max(1, int(2*u)))
+            pygame.draw.polygon(surface, darker, [
+                (head_cx + sign*(hr - max(2, int(6*u))),
+                 head_cy - hr//4 + max(1, int(2*u))),
+                (head_cx + sign*(hr + ear_len - max(3, int(8*u))),
+                 head_cy - hr//2 - ear_len//2 + max(3, int(5*u))),
+                (head_cx + sign*(hr//2 - sign*max(2, int(4*u))),
+                 head_cy - hr//2 + max(1, int(2*u))),
+            ])
+ 
+        # Head fill
+        pygame.draw.circle(surface, skin, (head_cx, head_cy), hr)
+        pygame.draw.circle(surface, dark, (head_cx, head_cy), hr,
+                           max(1, int(2*u)))
+ 
+        # ── Crown — tall ornate gold with jewels ──────────────────────────
+        crown_base_y = head_cy - hr + max(2, int(4*u))
+        crown_w      = int(hr * 2.2)
+        crown_h      = max(12, int(55*u))
+        crown_base_x = head_cx - crown_w//2
+ 
+        # Crown band
+        band_h = max(5, int(12*u))
+        pygame.draw.rect(surface, gold,
+                         (crown_base_x, crown_base_y - band_h,
+                          crown_w, band_h))
+        pygame.draw.rect(surface, gold_d,
+                         (crown_base_x, crown_base_y - band_h,
+                          crown_w, band_h), max(1, int(2*u)))
+        # Band detail line
+        pygame.draw.line(surface, gold_l,
+                         (crown_base_x + max(2, int(4*u)),
+                          crown_base_y - band_h//2),
+                         (crown_base_x + crown_w - max(2, int(4*u)),
+                          crown_base_y - band_h//2),
+                         max(1, int(2*u)))
+ 
+        # 5 spikes
+        spike_fracs   = [0.0, 0.22, 0.5, 0.78, 1.0]
+        spike_heights = [0.6, 0.78, 1.0, 0.78, 0.6]
+        for frac, hm in zip(spike_fracs, spike_heights):
+            sx  = crown_base_x + int(frac * crown_w)
+            sy  = crown_base_y - band_h
+            sh2 = int(crown_h * hm)
+            sw2 = max(5, int(crown_w * 0.13))
+            pts = [(sx - sw2//2, sy), (sx, sy - sh2), (sx + sw2//2, sy)]
+            pygame.draw.polygon(surface, gold,   pts)
+            pygame.draw.polygon(surface, gold_d, pts, max(1, int(2*u)))
+            pygame.draw.line(surface, gold_l,
+                             (sx - sw2//2, sy), (sx, sy - sh2),
+                             max(1, int(2*u)))
+ 
+        # Jewels on inner 3 spikes
+        for frac, jc in zip([0.22, 0.5, 0.78],
+                             [(200,50,50),(50,180,50),(50,80,200)]):
+            jx = crown_base_x + int(frac * crown_w)
+            jy = crown_base_y - band_h - max(2, int(4*u))
+            jr = max(4, int(7*u))
+            pygame.draw.circle(surface, fc(jc), (jx, jy), jr)
+            pygame.draw.circle(surface, tuple(min(255,c+70) for c in fc(jc)),
+                               (jx, jy), max(2, int(jr*0.5)))
+ 
+        # ── Eyes — heavy lidded, smug ─────────────────────────────────────
+        er  = max(5, int(11*u))
+        eox = max(7, int(hr//3))
+        for ex in [head_cx - eox, head_cx + eox]:
+            ey = head_cy - max(2, int(4*u))
+            pygame.draw.circle(surface, (20, 16, 5), (ex, ey), er+1)
+            pygame.draw.circle(surface, (20, 16, 5), (ex, ey), er)
+            pygame.draw.circle(surface, (255,255,255),
+                               (ex + max(1, int(3*u)), ey - max(1, int(2*u))),
+                               max(2, int(3*u)))
+        # Heavy drooping lids
+        for ex in [head_cx - eox, head_cx + eox]:
+            ey = head_cy - max(2, int(4*u))
+            pygame.draw.arc(surface, darker,
+                            (ex - er - max(1, int(3*u)), ey - er,
+                             (er + max(1, int(3*u)))*2, er + max(1, int(3*u))),
+                            0, math.pi, max(2, int(4*u)))
+ 
+        # ── Brow — smug arch on left, flat right ──────────────────────────
+        brow_y = head_cy - er - max(5, int(20*u))
+        # Left brow arched upward (smug)
+        pygame.draw.line(surface, darker,
+                         (head_cx - eox - max(4, int(8*u)), brow_y + max(2, int(4*u))),
+                         (head_cx - eox + max(4, int(8*u)), brow_y - max(2, int(4*u))),
+                         max(2, int(4*u)))
+        # Right brow flat
+        pygame.draw.line(surface, darker,
+                         (head_cx + eox - max(4, int(8*u)), brow_y),
+                         (head_cx + eox + max(4, int(8*u)), brow_y),
+                         max(2, int(4*u)))
+ 
+        # ── Nose ─────────────────────────────────────────────────────────
+        nw = max(9, int(18*u)); nh = max(6, int(13*u))
+        pygame.draw.ellipse(surface, dark,
+                            (head_cx - nw//2, head_cy + int(hr*0.18), nw, nh))
+        for nox in [-max(3, int(6*u)), max(3, int(6*u))]:
+            pygame.draw.circle(surface, darker,
+                               (head_cx + nox, head_cy + int(hr*0.30)),
+                               max(2, int(4*u)))
+ 
+        # ── Mouth — smug smirk, one tusk ─────────────────────────────────
+        mouth_y = head_cy + int(hr*0.52)
+        mouth_w = max(16, int(hr))
+        pygame.draw.arc(surface, darker,
+                        (head_cx - mouth_w//2,
+                         mouth_y - max(3, int(5*u)),
+                         mouth_w, max(6, int(16*u))),
+                        math.pi, 2*math.pi, max(2, int(4*u)))
+        # Smug upward curl on right side
+        pygame.draw.line(surface, darker,
+                         (head_cx + mouth_w//2, mouth_y),
+                         (head_cx + mouth_w//2 + max(3, int(5*u)),
+                          mouth_y - max(3, int(5*u))),
+                         max(1, int(2*u)))
+        # One tusk
+        pygame.draw.line(surface, bone_c,
+                         (head_cx + max(4, int(7*u)), mouth_y),
+                         (head_cx + max(4, int(7*u)), mouth_y - max(5, int(10*u))),
+                         max(3, int(5*u)))
 
 
 
