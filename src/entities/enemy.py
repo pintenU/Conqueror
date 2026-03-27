@@ -63,8 +63,8 @@ class Enemy:
         etype = self.enemy_type.lower().replace(" ","_")
         ts = self.tile_size
         if   etype=="goblin":            _draw_goblin(surface,draw_x,draw_y,t,ts)
-        elif etype=="goblin_chieftain": _draw_chieftain(surface,draw_x,draw_y,t,ts)
-        elif etype=="goblin_king": _draw_goblin_king(surface,draw_x,draw_y,t,ts)
+        elif etype=="goblin_chieftain":  _draw_chieftain(surface,draw_x,draw_y,t,ts)
+        elif etype=="goblin_king":       _draw_goblin_king(surface,draw_x,draw_y,t,ts)
         elif etype=="skeleton":          _draw_skeleton(surface,draw_x,draw_y,t,ts)
         elif etype=="troll":             _draw_troll(surface,draw_x,draw_y,t,ts)
         elif etype=="dark_mage":         _draw_dark_mage(surface,draw_x,draw_y,t,ts)

@@ -1,10 +1,12 @@
+PATCHNOTES:
 -------------------------
 Things that need fixing:
-# 
-# Map Does not track enemy movement
-# 
+# Minor bug fixes on enemy sprites in combat
+# Player model
+# Golden chests being unique
 ----------
 Things to add:
-# show locked doors on map
-# 
+# Show locked doors on map
+# Exit/Entrance to the town
+# More items
 -------------------------

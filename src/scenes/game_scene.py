@@ -772,7 +772,7 @@ class RoamingEnemy:
         self.moving=True
 
     def draw(self,surface,ox,oy):
-        from src.entities.enemy import (_draw_goblin, _draw_chieftain, _draw_generic)
+        from src.entities.enemy import (_draw_goblin, _draw_chieftain,_draw_goblin_king, _draw_generic)
         draw_x=int(self.px)+ox; draw_y=int(self.py)+oy
         t=self._anim_time; ts=self.tile_size
         etype=self.enemy_type
@@ -780,6 +780,8 @@ class RoamingEnemy:
             _draw_goblin(surface,draw_x,draw_y,t,ts)
         elif etype=="goblin_chieftain":
             _draw_chieftain(surface,draw_x,draw_y,t,ts)
+        elif etype=="goblin_king": 
+            _draw_goblin_king(surface,draw_x,draw_y,t,ts)
         else:
             _draw_generic(surface,draw_x,draw_y,t,ts,self.color)
 
